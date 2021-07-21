@@ -1,0 +1,74 @@
+<html>
+<head>
+<title>KnoxelJS</title>
+
+<link rel="stylesheet" type="text/css" href="/css/style.css">
+
+</head>
+<body>
+<!--
+* editor window, plus a game window
+* maybe show/hide the editor window with a panel
+* game window
+-->
+
+<ul class="tab">
+    <li><a href="#code" class="tablinks" id="codeTab" onclick="openTab(event, 'Code')">Code</a></li>
+    <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab(event, 'Game')">Game</a></li>
+</ul>
+
+<div id="Game" class="tabcontent">
+    <div id="game" class="game">
+    </div>
+</div>
+
+<div id="Code" class="tabcontent">
+    <div id="editor" class="editor">
+    </div>
+</div>
+
+<script>
+function openTab(evt, tabName) {
+    console.log('CLICK!');
+    let tabcontent = document.getElementsByClassName("tabcontent");
+    for (let i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    let tablinks = document.getElementsByClassName("tablinks");
+    for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    //console.log(document.getElementById(tabName), tabName);
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+function goToTab(tab) {
+    document.getElementById(tab).click();
+}
+</script>
+
+
+<!-- load code for the embedded ACE editor -->
+<script src="./ace-builds/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="./ace-builds/src-min-noconflict/theme-twilight.js" type="text/javascript" charset="utf-8"></script>
+<script src="knoxel-bundle.js"></script>
+
+<script>
+    // setup the ACE editor
+    let editor = ace.edit("editor");
+    editor.setTheme("ace/theme/twilight");
+    editor.getSession().setMode("ace/mode/javascript");
+    editor.setAutoScrollEditorIntoView(true);
+    //console.log(document.body);
+    // attach the game object to the game div
+    //console.log(document.getElementById("game"));
+    knoxel.game.appendTo(document.getElementById("game"));
+    
+    window.addEventListener('load', function () {
+        console.log("FOOBAR");
+        goToTab('Game');
+    });
+</script>
+
+</body>
+</html>

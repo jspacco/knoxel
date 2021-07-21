@@ -1,0 +1,220 @@
+#middle {
+    font-size: 32px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .center {
+    font-size: 32px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 70%;
+    display: block;
+    text-align: center;
+  }
+  
+  #sidebyside {
+    width: 100%;
+    overflow: hidden;
+  }
+  #editorDiv {
+    /* includes the compile/run buttons */
+    min-width: 60%;
+    max-width: 75%;
+    float: left;
+  }
+  
+  .editor {
+    height: 400px;
+  }
+  
+  .blocktypes {
+    width: 25%;
+    float: right;
+    height: 550px;
+    overflow-y: scroll;
+  }
+  
+  body {
+      color: #1a1a1a;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      font-size:16px;
+  }
+  
+  #textureTable {
+      font-size:16px;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      border-collapse: collapse;
+      border-spacing: 0;
+      width: 100%;
+  }
+  
+  td, th {
+      border: 1px solid #ddd;
+      text-align: left;
+      padding: 8px;
+  }
+  
+  tr:nth-child(even){background-color: #f2f2f2}
+  
+  th {
+      padding-top: 11px;
+      padding-bottom: 11px;
+      background-color: #4CAF50;
+      color: white;
+  }
+  
+  input[type=text] {
+      -webkit-transition-duration: 0.4s; /* Safari */
+      transition-duration: 0.4s;
+      padding: 6px 6px;
+      border: 1px solid #1a1a1a;
+      border-radius: 3px;
+      color:#1a1a1a;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      font-size:16px;
+  }
+  
+  input[type=text]:focus {
+      background-color:#4caf4f;
+      color:#ffffff;
+  }
+  
+  button {
+      -webkit-transition-duration: 0.4s; /* Safari */
+      transition-duration: 0.4s;
+      background-color:#f2f2f2;
+      -moz-border-radius:3px;
+      -webkit-border-radius:3px;
+      border-radius:3px;
+      border:1px solid #1a1a1a;
+      display:inline-block;
+      cursor:pointer;
+      color:#1a1a1a;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      font-size:16px;
+      padding:5px 10px;
+      text-decoration:none;
+  }
+  
+  button:hover {
+      background-color:#4caf4f;
+          color:#ffffff;
+  }
+  
+  button:active {
+      position:relative;
+      top:1px;
+  }
+  
+  ul.tab {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #ccc;
+      background-color: #f1f1f1;
+  }
+  
+  /* Float the list items side by side */
+  ul.tab li {float: left;}
+  
+  /* Style the links inside the list items */
+  ul.tab li a {
+      display: inline-block;
+      color: #1a1a1a;
+      text-align: center;
+      padding: 14px 16px;
+      text-decoration: none;
+      transition: 0.3s;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      font-size:16px;
+  }
+  
+  /* Change background color of links on hover */
+  ul.tab li a:hover {
+      background-color: #ddd;
+  }
+  
+  /* Create an active/current tablink class */
+  ul.tab li a:focus, .active {
+      background-color: #4caf4f;
+      color: #ffffff;
+  }
+  
+  /* Style the tab content */
+  .tabcontent {
+      display: none;
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-top: none;
+      -webkit-animation: fadeEffect 1s;
+      animation: fadeEffect .5s; /* Fading effect takes .5 seconds */
+  }
+  
+  @-webkit-keyframes fadeEffect {
+      from {opacity: 0;}
+      to {opacity: 1;}
+  }
+  
+  @keyframes fadeEffect {
+      from {opacity: 0;}
+      to {opacity: 1;}
+  }
+  
+  .inputfile {
+      width: 0.1px;
+      height: 0.1px;
+      opacity: 0;
+      overflow: hidden;
+      position: absolute;
+      z-index: -1;
+  }
+  
+  .inputfile + label {
+      border:1px solid #1a1a1a;
+      font-family: sans-serif, "Trebuchet MS", Arial, Helvetica;
+      font-size:16px;
+      padding:5px 10px;
+      color: #1a1a1a;
+      -webkit-transition-duration: 0.4s; /* Safari */
+      transition-duration: 0.4s;
+      background-color:#f2f2f2;
+      -moz-border-radius:3px;
+      -webkit-border-radius:3px;
+      border-radius:3px;
+      display: inline-block;
+  }
+  
+  .inputfile:focus + label,
+  .inputfile + label:hover {
+      background-color:#4caf4f;
+          color:#ffffff;
+  }
+  
+  .aceErrorMarker {
+      background: rgba(255, 0, 0, 0.5);
+      position: absolute;
+      width: 100% !important;
+      left: 0 !important;
+      z-index:20
+  }
+  #blocklyArea {
+    height: 99%;
+    background: #fc9;
+    text-align: center;
+  }
+  #blocklyTable {
+    height: 100%;
+    width: 100%;
+  }
+  #avatarHeadshot {
+    vertical-align: middle;
+    border-radius: 35px;
+    border-color: white;
+  }
+  #aboutTable {
+    table-layout: auto;
+  }
+  
