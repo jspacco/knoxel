@@ -240,40 +240,71 @@ function updateDrawing(e) {
         let result = e.target.result;
         let obj = JSON.parse(result);
 
-        let length = parseInt(obj.length);
+        let depth = parseInt(obj.depth);
         let width = parseInt(obj.width);
         let height = parseInt(obj.height);
-        console.log("length = "+obj.length);
         console.log("width = "+obj.width);
+        console.log("depth = "+obj.depth);
         console.log("height = "+obj.height);
         // document.getElementById('length').innerHTML = obj.length;
         // document.getElementById('width').innerHTML = obj.width;
         // document.getElementById('height').innerHTML = obj.height;
-        var blocks = obj.blocks;
+        // var blocks = obj.blocks;
         //for (var x = 0; x < blocks.length; x++) {
         //for (var z = 0; z < blocks[z].length; z++){
-        console.log(blocks);
-        console.log(blocks.length);
-        console.log(blocks[0].length);
-        console.log(blocks[0][0].length);
-        //for (let x = 0; x < blocks.length; x++) {
-        for (let x = 0; x < width; x++) {
-            console.log(blocks[x]);
-            //for (let z = 0; z < blocks[z].length; z++){
-            for (let z = 0; z < length; z++){
-                console.log(blocks[x][z]);
-                //for (let y = 0; y < blocks[x][z].length; y++){
-                for (let y = 0; y < height; y++){
-                    console.log(blocks[x][z][y]);
-                    console.log("("+x+","+y+","+z+") = "+
-                        blocks[x][z][y] +" is "+materialNames[blocks[x][z][y]]);
-                    game.setBlock(new Array(x, y+1, -z), materialNames[blocks[x][z][y]]);
-                }
-            }
-        }
+        drawGrid(obj.blocks);
     } catch(err){
         console.log("ERROR READING LANDSCAPE FILE");
         console.log(err);
+    }
+}
+
+const makeGrid = function(width, depth, height) {
+    let result = [];
+    for (let w=0; w<width; w++){
+        let row = [];
+        for (let d=0; d<depth; d++){
+            let col = [];
+            for (let h=0; h<height; h++){
+                col.push(null);
+            }
+            row.push(col);
+        }
+        result.push(row);
+    }
+    return result;
+}
+
+const blockify = function(grid) {
+    // TODO: make sure these are regular 3d shapes
+    const width = grid.length;
+    const depth = grid[0].length;
+    const height = grid[0][0].length;
+    return {
+        width: width,
+        depth: depth,
+        height: height,
+        blocks: grid
+    }
+}
+
+const drawBlocks = function(blocks) {
+    const width = blocks.length;
+    const depth = blocks[0].length;
+    const height = blocks[0][0].height;
+    console.log(`width=${width}, depth=${depth}, height=${height}`);
+    //for (let x = 0; x < blocks.length; x++) {
+    for (let x = 0; x < blocks.length; x++) {
+        console.log(blocks[x]);
+        //for (let z = 0; z < blocks[z].length; z++){
+        for (let z = 0; z < blocks[x].length; z++){
+            console.log(blocks[x][z]);
+            //for (let y = 0; y < blocks[x][z].length; y++){
+            for (let y = 0; y < blocks[x][z].length; y++){
+                //console.log(`(${x}, ${y}, ${z}) = ${materialNames[blocks[x][y][z]]}`);
+                game.setBlock(new Array(x, y+1, -z), materialNames[blocks[x][z][y]]);
+            }
+        }
     }
 }
 
@@ -281,3 +312,6 @@ function updateDrawing(e) {
 // finally, export the game object so browserify can make it available
 module.exports.game = game;
 module.exports.loadDrawing = loadDrawing;
+module.exports.drawBlocks = drawBlocks;
+module.exports.makeGrid = makeGrid;
+module.exports.blockify = blockify;

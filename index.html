@@ -13,7 +13,7 @@
 </ul>
 
 <div id="game" class="tabcontent">
-    <input type="file" id="loadDrawing" class="inputfile" onchange="gogo">
+    <input type="file" id="loadDrawing" class="inputfile">
     <label for="loadDrawing">Load Drawing from JSON</label>
     
     <div id="gamediv" class="game">
@@ -21,16 +21,27 @@
 </div>
 
 <div id="code" class="tabcontent" style="display:block;">
+    <button id="runCode" onclick="runCode()">Run code!</button>
+
     <div id="editor" class="editor">
+const width = 2;
+const depth = 3;
+const height = 4;
+let blocks = knoxel.makeGrid(width, depth, height);
+
+for (let w=0; w&lt;width; w++){
+    for (let d=0; d&lt;depth; d++){
+        for (let h=0; h&lt;height; h++){
+            blocks[w][d][h] = "DIRT";
+        }
+    }
+}
+knoxel.drawBlocks(blocks);
     </div>
 </div>
 
 
 <script>
-function gogo() {
-    console.log("CLICK");
-}
-
 
 function openTab(tabName) {
     let tabcontent = document.getElementsByClassName("tabcontent");
@@ -44,6 +55,13 @@ function openTab(tabName) {
     document.getElementById(tabName).style.display = "block";
     document.getElementById(tabName+'Tab').className += " active";
 }
+
+function runCode() {
+    var studentCode = editor.getValue();
+    // security risk, but it's all client-side code with no state, so I don't really care
+    eval(studentCode);
+    openTab('game');
+}
 </script>
 
 
@@ -54,7 +72,7 @@ function openTab(tabName) {
 
 <script>
     // setup the ACE editor
-    let editor = ace.edit("editor");
+    var editor = ace.edit("editor");
     editor.setTheme("ace/theme/twilight");
     editor.getSession().setMode("ace/mode/javascript");
     editor.setAutoScrollEditorIntoView(true);
@@ -64,6 +82,7 @@ function openTab(tabName) {
 
     // set the event handler for upload drawing files
     document.getElementById("loadDrawing").onchange = knoxel.loadDrawing;
+
 </script>
 
 </body>
