@@ -13,6 +13,9 @@
 </ul>
 
 <div id="game" class="tabcontent">
+    <input type="file" id="loadDrawing" class="inputfile" onchange="gogo">
+    <label for="loadDrawing">Load Drawing from JSON</label>
+    
     <div id="gamediv" class="game">
     </div>
 </div>
@@ -24,6 +27,11 @@
 
 
 <script>
+function gogo() {
+    console.log("CLICK");
+}
+
+
 function openTab(tabName) {
     let tabcontent = document.getElementsByClassName("tabcontent");
     for (let i = 0; i < tabcontent.length; i++) {
@@ -53,6 +61,9 @@ function openTab(tabName) {
 
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));
+
+    // set the event handler for upload drawing files
+    document.getElementById("loadDrawing").onchange = knoxel.loadDrawing;
 </script>
 
 </body>

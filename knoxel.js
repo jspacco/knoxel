@@ -101,7 +101,6 @@ hl.on('remove', function (voxelPos) { highlightPos = null })
 
 
 
-
 function createMaterials() {
     // Registers a material
     function addMat(name, filename) {
@@ -219,9 +218,66 @@ function createMaterials() {
 }
 
 
+// Upload landscape files
+// These are JSON files that describe a landscape
+// They can be produced from 3D arrays in various programming languages
+function loadDrawing(evt) {
+    console.log("Loading drawing!");
+    readFile(evt.target.files[0], updateDrawing);
+}
+
 //
-// WTF is cityName here for?
+// reads a file as text
 //
+function readFile(file, onLoadCallback){
+    var reader = new FileReader();
+    reader.onload = onLoadCallback;
+    reader.readAsText(file);
+}
+  
+function updateDrawing(e) {
+    try {
+        let result = e.target.result;
+        let obj = JSON.parse(result);
+
+        let length = parseInt(obj.length);
+        let width = parseInt(obj.width);
+        let height = parseInt(obj.height);
+        console.log("length = "+obj.length);
+        console.log("width = "+obj.width);
+        console.log("height = "+obj.height);
+        // document.getElementById('length').innerHTML = obj.length;
+        // document.getElementById('width').innerHTML = obj.width;
+        // document.getElementById('height').innerHTML = obj.height;
+        var blocks = obj.blocks;
+        //for (var x = 0; x < blocks.length; x++) {
+        //for (var z = 0; z < blocks[z].length; z++){
+        console.log(blocks);
+        console.log(blocks.length);
+        console.log(blocks[0].length);
+        console.log(blocks[0][0].length);
+        //for (let x = 0; x < blocks.length; x++) {
+        for (let x = 0; x < width; x++) {
+            console.log(blocks[x]);
+            //for (let z = 0; z < blocks[z].length; z++){
+            for (let z = 0; z < length; z++){
+                console.log(blocks[x][z]);
+                //for (let y = 0; y < blocks[x][z].length; y++){
+                for (let y = 0; y < height; y++){
+                    console.log(blocks[x][z][y]);
+                    console.log("("+x+","+y+","+z+") = "+
+                        blocks[x][z][y] +" is "+materialNames[blocks[x][z][y]]);
+                    game.setBlock(new Array(x, y+1, -z), materialNames[blocks[x][z][y]]);
+                }
+            }
+        }
+    } catch(err){
+        console.log("ERROR READING LANDSCAPE FILE");
+        console.log(err);
+    }
+}
+
 
 // finally, export the game object so browserify can make it available
 module.exports.game = game;
+module.exports.loadDrawing = loadDrawing;
