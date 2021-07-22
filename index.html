@@ -6,11 +6,6 @@
 
 </head>
 <body>
-<!--
-* editor window, plus a game window
-* maybe show/hide the editor window with a panel
-* game window
--->
 
 <ul class="tab">
     <li><a href="#code" class="tablinks active" id="codeTab" onclick="openTab('code')">Code</a></li>
@@ -22,14 +17,11 @@
     </div>
 </div>
 
-<div id="code" class="tabcontent">
+<div id="code" class="tabcontent" style="display:block;">
     <div id="editor" class="editor">
     </div>
 </div>
 
-<!-- 
-    <button onclick="gogo()" width="50" height="100"></button>
--->
 
 <script>
 function openTab(tabName) {
@@ -41,10 +33,8 @@ function openTab(tabName) {
     for (let i = 0; i < tablinks.length; i++) {
         tablinks[i].className = tablinks[i].className.replace(" active", "");
     }
-    //console.log(document.getElementById(tabName), tabName);
     document.getElementById(tabName).style.display = "block";
     document.getElementById(tabName+'Tab').className += " active";
-    //evt.currentTarget.className += " active";
 }
 </script>
 
@@ -60,16 +50,9 @@ function openTab(tabName) {
     editor.setTheme("ace/theme/twilight");
     editor.getSession().setMode("ace/mode/javascript");
     editor.setAutoScrollEditorIntoView(true);
-    //console.log(document.body);
+
     // attach the game object to the game div
-    //console.log(document.getElementById("game"));
     knoxel.game.appendTo(document.getElementById("gamediv"));
-    
-    window.onload = function() {
-        console.log("onload starting");
-        openTab('code');
-        console.log('onload done');
-    };
 </script>
 
 </body>
