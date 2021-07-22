@@ -252,7 +252,7 @@ function updateDrawing(e) {
         // var blocks = obj.blocks;
         //for (var x = 0; x < blocks.length; x++) {
         //for (var z = 0; z < blocks[z].length; z++){
-        drawGrid(obj.blocks);
+        drawBlocks(obj.blocks);
     } catch(err){
         console.log("ERROR READING LANDSCAPE FILE");
         console.log(err);
@@ -315,3 +315,5 @@ module.exports.loadDrawing = loadDrawing;
 module.exports.drawBlocks = drawBlocks;
 module.exports.makeGrid = makeGrid;
 module.exports.blockify = blockify;
+//module.exports.allMaterials = allMaterials;
+//module.exports.materialNames = materialNames;
