@@ -13,23 +13,26 @@
 -->
 
 <ul class="tab">
-    <li><a href="#code" class="tablinks" id="codeTab" onclick="openTab(event, 'Code')">Code</a></li>
-    <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab(event, 'Game')">Game</a></li>
+    <li><a href="#code" class="tablinks active" id="codeTab" onclick="openTab('code')">Code</a></li>
+    <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
 </ul>
 
-<div id="Game" class="tabcontent">
-    <div id="game" class="game">
+<div id="game" class="tabcontent">
+    <div id="gamediv" class="game">
     </div>
 </div>
 
-<div id="Code" class="tabcontent">
+<div id="code" class="tabcontent">
     <div id="editor" class="editor">
     </div>
 </div>
 
+<!-- 
+    <button onclick="gogo()" width="50" height="100"></button>
+-->
+
 <script>
-function openTab(evt, tabName) {
-    console.log('CLICK!');
+function openTab(tabName) {
     let tabcontent = document.getElementsByClassName("tabcontent");
     for (let i = 0; i < tabcontent.length; i++) {
         tabcontent[i].style.display = "none";
@@ -40,10 +43,8 @@ function openTab(evt, tabName) {
     }
     //console.log(document.getElementById(tabName), tabName);
     document.getElementById(tabName).style.display = "block";
-    evt.currentTarget.className += " active";
-}
-function goToTab(tab) {
-    document.getElementById(tab).click();
+    document.getElementById(tabName+'Tab').className += " active";
+    //evt.currentTarget.className += " active";
 }
 </script>
 
@@ -62,12 +63,13 @@ function goToTab(tab) {
     //console.log(document.body);
     // attach the game object to the game div
     //console.log(document.getElementById("game"));
-    knoxel.game.appendTo(document.getElementById("game"));
+    knoxel.game.appendTo(document.getElementById("gamediv"));
     
-    window.addEventListener('load', function () {
-        console.log("FOOBAR");
-        goToTab('Game');
-    });
+    window.onload = function() {
+        console.log("onload starting");
+        openTab('code');
+        console.log('onload done');
+    };
 </script>
 
 </body>
