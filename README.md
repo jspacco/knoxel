@@ -13,8 +13,7 @@
     * Need a way to list/show textures, possibly in a separate tab
     * Add textures of various colors that we can just kind of drop in
         * https://www.pixilart.com/draw/16x16-b3bc604165f0096
-* enum-like thing in JS for easy of use
-    * knoxel.blockType.DIRT or knoxel.DIRT
+        * my red, pink are probably wrong?
 * clicking should reveal the names of textures somehow
 * grid outline of the whole thing that we just dropped into place as debugging
 * draw text onto the screen anywhere? what else can we do with voxel?
