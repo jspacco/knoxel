@@ -1,7 +1,6 @@
 # Knoxel JS: A Voxel-based browser coding experience
 
 ## TODO
-* Python/pykc support, try to integrate directly into knoxel.js backend
 * Should we name it Knoxcraft after all? Knoxel / KnoxelJS is probably more unique
 * About page (grab MC images of former students)
 * Instructions
@@ -12,6 +11,8 @@
 * Textures!
     * everything through LAPIS_LAZULI_ORE works, nothing after it works
     * Need a way to list/show textures, possibly in a separate tab
+    * Add textures of various colors that we can just kind of drop in
+        * https://www.pixilart.com/draw/16x16-b3bc604165f0096
 * enum-like thing in JS for easy of use
     * knoxel.blockType.DIRT or knoxel.DIRT
 * clicking should reveal the names of textures somehow
@@ -20,8 +21,12 @@
     * check @deathcap's fork, it seems more up to date than maxogden
         * would need to figure out how to import into node_modules from github?
 * get rid of the little status thing, it's annoying
+* fix webgl errors
 * check other voxeljs features to see what else we might want to add
 * Placeholders for student-side debugging (width, depth, height, blocks, etc)
+* fix ACE error handling 
+    * highlighting line numbers for errors
+    * add a div to show/hide errors
 * BlueJ/JGrasp Java support
 
 ## Stretch Goals
