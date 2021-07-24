@@ -84,49 +84,23 @@ function runJavascript() {
 }
 
 function runPython() {
+    // get student code from editor, then paste our base code in front of it
     let studentCode = pythonEditor.getValue();
     let fullCode = pykcLibraryCode + studentCode;
-    console.log(`pykcCodeLen = ${pykcCodeLen}`);
-    function outf(text) { 
-        //var mypre = document.getElementById("output"); 
-        //mypre.innerHTML = mypre.innerHTML + text; 
-        //console.log(text);
-    }
-    function builtinRead(x) {
-        if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined)
-            throw "File not found: '" + x + "'";
-        return Sk.builtinFiles["files"][x];
-    }
 
-    // Here's everything you need to run a python program in skulpt
-    // grab the code from your textarea
-    // get a reference to your pre element for output
-    // configure the output function
-    
-    // TODO: do we still need output and read?
-    Sk.configure({output:outf, read:builtinRead}); 
-
-    //(Sk.TurtleGraphics || (Sk.TurtleGraphics = {})).target = 'mycanvas';
+    // configure and run the python code
+    Sk.configure({});
     var myPromise = Sk.misceval.asyncToPromise(function() {
         return Sk.importMainWithBody("<stdin>", false, fullCode, true);
     });
     myPromise.then(function(mod) {
+        // on success, switch to the game tab
         openTab('game');
     },
     function(err) {
+        // rewrite error messages to subtract off the length of our base code
         // TODO: mark the error message in the editor
         let errmsg = err.toString();
-        if (errmsg.indexOf("ExternalError: SyntaxError: Unexpected end of JSON input on line")==0 ||
-          errmsg.indexOf("ExternalError: SyntaxError: JSON.parse: unexpected end of data at line")==0)
-        {
-          // Ignore these error messages
-          return;
-        }
-
-        if (errmsg.indexOf('in JSON at position') !== -1) {
-          alert("Make sure you don't have any print() statements other than the final print(t.toJson())");
-          return;
-        }
         // TODO: better post-processing of errors
         let regex = /line ([0-9]+)/g;
         let newmsg = errmsg;
@@ -137,17 +111,11 @@ function runPython() {
           // capturing group n: match[n]
           let oldline = match[0];
           let num = match[1];
-
           let newline = `line ${num-pykcCodeLen+1}`;
-
-          //console.log(`bad line at ${oldline} ${fullCode.split("\n")[num-1]}`);
-
           newmsg = newmsg.replace(oldline, newline);
           match = regex.exec(newmsg);
         }
         // TODO: integrate error into ACE editor somehow
-        //let pymessage = document.getElementById("pymessage");
-        //pymessage.innerHTML=newmsg;
         console.log(newmsg);
     });
     
@@ -164,18 +132,16 @@ function runPython() {
 
 <script>
     // load the pykc base code
-    let myCustomFiles = {};
-    var pykcLibraryCode = '';
+    var pykcLibraryCode = null;
+    var pykcCodeLen = -1;
     let client = new XMLHttpRequest();
     // 3rd paramter false makes this a synchronous request
     client.open('GET', '/pykc/pykcbase.py', false);
     client.onreadystatechange = function() {
       pykcLibraryCode = client.responseText+"\n\n";
-      myCustomFiles['./pykcbase.py'] = pykcLibraryCode;
+      pykcCodeLen = pykcLibraryCode.split(/\r\n|\r|\n/).length;
     }
     client.send();
-    var pykcCodeLen = pykcLibraryCode.split(/\r\n|\r|\n/).length;
-    //console.log(`pykcCodeLen = ${pykcCodeLen}`);
     
     // shimming Skulpt
     Sk.builtins.drawBlocks = function(blocks) {
@@ -198,7 +164,6 @@ function runPython() {
             }
             jsblocks.push(row);
         }
-        console.log(jsblocks);
         // Call into our bundles JS code
         knoxel.drawBlocks(jsblocks);
     }

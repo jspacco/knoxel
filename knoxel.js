@@ -255,7 +255,7 @@ function updateDrawing(e) {
         //for (var z = 0; z < blocks[z].length; z++){
         drawBlocks(obj.blocks);
     } catch(err){
-        console.log("ERROR READING LANDSCAPE FILE");
+        console.log("ERROR READING DRAWING FILE");
         console.log(err);
     }
 }
@@ -293,16 +293,9 @@ const drawBlocks = function(blocks) {
     const width = blocks.length;
     const depth = blocks[0].length;
     const height = blocks[0][0].height;
-    console.log(`width=${width}, depth=${depth}, height=${height}`);
-    //for (let x = 0; x < blocks.length; x++) {
     for (let x = 0; x < blocks.length; x++) {
-        console.log(blocks[x]);
-        //for (let z = 0; z < blocks[z].length; z++){
         for (let z = 0; z < blocks[x].length; z++){
-            console.log(blocks[x][z]);
-            //for (let y = 0; y < blocks[x][z].length; y++){
             for (let y = 0; y < blocks[x][z].length; y++){
-                //console.log(`(${x}, ${y}, ${z}) = ${materialNames[blocks[x][y][z]]}`);
                 game.setBlock(new Array(x, y+1, -z), materialNames[blocks[x][z][y]]);
             }
         }
