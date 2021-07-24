@@ -8,7 +8,8 @@
 <body>
 
 <ul class="tab">
-    <li><a href="#code" class="tablinks active" id="codeTab" onclick="openTab('code')">Code</a></li>
+    <li><a href="#javascript" class="tablinks active" id="javascriptTab" onclick="openTab('javascript')">Javascript</a></li>
+    <li><a href="#python" class="tablinks" id="pythonTab" onclick="openTab('python')">Python</a></li>
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
 </ul>
 
@@ -20,10 +21,10 @@
     </div>
 </div>
 
-<div id="code" class="tabcontent" style="display:block;">
-    <button id="runCode" onclick="runCode()">Run code!</button>
+<div id="javascript" class="tabcontent editor" style="display:block;">
+    <button id="runJavascript" onclick="runJavascript()">Run Javascript code!</button>
 
-    <div id="editor" class="editor">
+    <div id="javascriptEditor" class="editor">
 const width = 2;
 const depth = 3;
 const height = 4;
@@ -37,6 +38,24 @@ for (let w=0; w&lt;width; w++){
     }
 }
 knoxel.drawBlocks(blocks);
+    </div>
+</div>
+
+<div id="python" class="tabcontent editor">
+    <button id="runPython" onclick="runPython()">Run Python code!</button>
+
+    <div id="pythonEditor" class="editor">
+width = 2
+depth = 3
+height = 4
+blocks = [[[0 for k in xrange(height)] for j in xrange(depth)] for i in xrange(width)]
+
+for i in xrange(width):
+    for j in xrange(depth):
+        for k in xrange(height):
+            blocks[i][j][k] = bt.cobblestone
+
+drawBlocks(blocks)
     </div>
 </div>
 
@@ -56,11 +75,81 @@ function openTab(tabName) {
     document.getElementById(tabName+'Tab').className += " active";
 }
 
-function runCode() {
-    var studentCode = editor.getValue();
+function runJavascript() {
+    let studentCode = javascriptEditor.getValue();
     // security risk, but it's all client-side code with no state, so I don't really care
     eval(studentCode);
     openTab('game');
+}
+
+function runPython() {
+    let studentCode = pythonEditor.getValue();
+    let fullCode = pykcLibraryCode + studentCode;
+    console.log(`pykcCodeLen = ${pykcCodeLen}`);
+    function outf(text) { 
+        //var mypre = document.getElementById("output"); 
+        //mypre.innerHTML = mypre.innerHTML + text; 
+        //console.log(text);
+    }
+    function builtinRead(x) {
+        if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined)
+            throw "File not found: '" + x + "'";
+        return Sk.builtinFiles["files"][x];
+    }
+
+    // Here's everything you need to run a python program in skulpt
+    // grab the code from your textarea
+    // get a reference to your pre element for output
+    // configure the output function
+    
+    // TODO: do we still need output and read?
+    Sk.configure({output:outf, read:builtinRead}); 
+
+    //(Sk.TurtleGraphics || (Sk.TurtleGraphics = {})).target = 'mycanvas';
+    var myPromise = Sk.misceval.asyncToPromise(function() {
+        return Sk.importMainWithBody("<stdin>", false, fullCode, true);
+    });
+    myPromise.then(function(mod) {
+        openTab('game');
+    },
+    function(err) {
+        // TODO: mark the error message in the editor
+        let errmsg = err.toString();
+        if (errmsg.indexOf("ExternalError: SyntaxError: Unexpected end of JSON input on line")==0 ||
+          errmsg.indexOf("ExternalError: SyntaxError: JSON.parse: unexpected end of data at line")==0)
+        {
+          // Ignore these error messages
+          return;
+        }
+
+        if (errmsg.indexOf('in JSON at position') !== -1) {
+          alert("Make sure you don't have any print() statements other than the final print(t.toJson())");
+          return;
+        }
+        // TODO: better post-processing of errors
+        let regex = /line ([0-9]+)/g;
+        let newmsg = errmsg;
+        match = regex.exec(newmsg);
+        while (match != null) {
+          // matched text: match[0]
+          // match start: match.index
+          // capturing group n: match[n]
+          let oldline = match[0];
+          let num = match[1];
+
+          let newline = `line ${num-pykcCodeLen+1}`;
+
+          //console.log(`bad line at ${oldline} ${fullCode.split("\n")[num-1]}`);
+
+          newmsg = newmsg.replace(oldline, newline);
+          match = regex.exec(newmsg);
+        }
+        // TODO: integrate error into ACE editor somehow
+        //let pymessage = document.getElementById("pymessage");
+        //pymessage.innerHTML=newmsg;
+        console.log(newmsg);
+    });
+    
 }
 </script>
 
@@ -69,13 +158,62 @@ function runCode() {
 <script src="./ace-builds/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
 <script src="./ace-builds/src-min-noconflict/theme-twilight.js" type="text/javascript" charset="utf-8"></script>
 <script src="knoxel-bundle.js"></script>
+<script src="./pykc/skulpt.min.js"></script>
+<script src="./pykc/skulpt-stdlib.js"></script>
 
 <script>
-    // setup the ACE editor
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/twilight");
-    editor.getSession().setMode("ace/mode/javascript");
-    editor.setAutoScrollEditorIntoView(true);
+    // load the pykc base code
+    let myCustomFiles = {};
+    var pykcLibraryCode = '';
+    let client = new XMLHttpRequest();
+    // 3rd paramter false makes this a synchronous request
+    client.open('GET', '/pykc/pykcbase.py', false);
+    client.onreadystatechange = function() {
+      pykcLibraryCode = client.responseText+"\n\n";
+      myCustomFiles['./pykcbase.py'] = pykcLibraryCode;
+    }
+    client.send();
+    var pykcCodeLen = pykcLibraryCode.split(/\r\n|\r|\n/).length;
+    //console.log(`pykcCodeLen = ${pykcCodeLen}`);
+    
+    // shimming Skulpt
+    Sk.builtins.drawBlocks = function(blocks) {
+        // convert from Skupt to pure JS, then pass off to JS function in our bundle
+        let jsblocks = [];
+        
+        // all JS values in Skulpt are objects where 
+        // the actual JS values are stored with key v
+        //console.log(`blocks.v.length ${blocks.v.length}`);
+        for (let w=0; w<blocks.v.length; w++){
+            let row = [];
+            //console.log(`blocks.v[w].v.length ${blocks.v[w].v.length}`);
+            for (let d=0; d<blocks.v[w].v.length; d++){
+                let col = [];
+                //console.log(`blocks.v[w].v[d].v.length ${blocks.v[w].v[d].v.length}`);
+                for (let h=0; h<blocks.v[w].v[d].v.length; h++){
+                    col.push(blocks.v[w].v[d].v[h].v);
+                }
+                row.push(col);
+            }
+            jsblocks.push(row);
+        }
+        console.log(jsblocks);
+        // Call into our bundles JS code
+        knoxel.drawBlocks(jsblocks);
+    }
+
+
+    // setup the javascript ACE editor
+    var javascriptEditor = ace.edit("javascriptEditor");
+    javascriptEditor.setTheme("ace/theme/twilight");
+    javascriptEditor.getSession().setMode("ace/mode/javascript");
+    javascriptEditor.setAutoScrollEditorIntoView(true);
+
+    // setup the python ACE editor
+    var pythonEditor = ace.edit("pythonEditor");
+    pythonEditor.setTheme("ace/theme/twilight");
+    pythonEditor.getSession().setMode("ace/mode/python");
+    pythonEditor.setAutoScrollEditorIntoView(true);
 
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));
