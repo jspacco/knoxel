@@ -309,5 +309,9 @@ module.exports.loadDrawing = loadDrawing;
 module.exports.drawBlocks = drawBlocks;
 module.exports.makeGrid = makeGrid;
 module.exports.blockify = blockify;
+// so we can do knoxel.dirt, or knoxel.cobblestone, etc
+for (let material of Object.keys(materialNames)) {
+    module.exports[material.toLowerCase()] = material;
+}
 //module.exports.allMaterials = allMaterials;
 //module.exports.materialNames = materialNames;
