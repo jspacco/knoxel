@@ -1,6 +1,7 @@
 let allMaterials = [];
 let materialNames = {};
 materialNames['AIR'] = 0;
+materialNames[null] = 0;
 
 createMaterials();
 

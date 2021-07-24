@@ -48,7 +48,8 @@ knoxel.drawBlocks(blocks);
 width = 2
 depth = 3
 height = 4
-blocks = [[[0 for k in xrange(height)] for j in xrange(depth)] for i in xrange(width)]
+#blocks = [[[null for k in xrange(height)] for j in xrange(depth)] for i in xrange(width)]
+blocks = makeGrid(width, depth, height)
 
 for i in xrange(width):
     for j in xrange(depth):
