@@ -84,6 +84,14 @@ function runJavascript() {
 }
 
 function runPython() {
+    // remove marks
+    for (let mark of pythonErrorMarkers) {
+        console.log(`clear error marker ${mark}`);
+        pythonEditor.getSession().removeMarker(mark);
+    }
+    pythonErrorMarkers = [];
+    pythonEditor.resize();
+
     // get student code from editor, then paste our base code in front of it
     let studentCode = pythonEditor.getValue();
     let fullCode = pykcLibraryCode + studentCode;
@@ -111,7 +119,12 @@ function runPython() {
           // capturing group n: match[n]
           let oldline = match[0];
           let num = match[1];
-          let newline = `line ${num-pykcCodeLen+1}`;
+          let newNum = num - pykcCodeLen + 1;
+          // mark line in ace editor
+          let errid = pythonEditor.session.addMarker(new Range(newNum-1, 0, newNum-1, 1), "aceErrorMarker", "fullLine");
+          pythonErrorMarkers.push(errid);
+          console.log(`errid ${errid}`);
+          let newline = `line ${newNum}`;
           newmsg = newmsg.replace(oldline, newline);
           match = regex.exec(newmsg);
         }
@@ -168,18 +181,22 @@ function runPython() {
         knoxel.drawBlocks(jsblocks);
     }
 
+    // Ace range function
+    var Range = ace.require('ace/range').Range;
 
     // setup the javascript ACE editor
     var javascriptEditor = ace.edit("javascriptEditor");
     javascriptEditor.setTheme("ace/theme/twilight");
     javascriptEditor.getSession().setMode("ace/mode/javascript");
     javascriptEditor.setAutoScrollEditorIntoView(true);
+    var javascriptErrorMarkers = [];
 
     // setup the python ACE editor
     var pythonEditor = ace.edit("pythonEditor");
     pythonEditor.setTheme("ace/theme/twilight");
     pythonEditor.getSession().setMode("ace/mode/python");
     pythonEditor.setAutoScrollEditorIntoView(true);
+    var pythonErrorMarkers = [];
 
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));
