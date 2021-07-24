@@ -198,6 +198,15 @@ function createMaterials() {
     addMat("IRON_ORE", "iron_ore");
     addMat("COAL_ORE", "coal_ore");
     addMat("LAPIS_LAZULI_ORE", "lapis_ore");
+
+    // my own textures
+    addMat("BLUE", "blue");
+    addMat("GREEN", "green");
+    addMat("WHITE", "white");
+    addMat("RED", "red");
+    addMat("PINK", "pink");
+    addMat("BLACK", "black");
+
     addMat("QUARTZ_BLOCK", ["quartz_block_side", "quartz_block_side", "quartz_block_top", "quartz_block_bottom", "quartz_block_side", "quartz_block_side"]);
 
     addMat("MONSTER_SPAWNER", "mob_spawner");
