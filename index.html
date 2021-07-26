@@ -11,6 +11,7 @@
     <li><a href="#javascript" class="tablinks active" id="javascriptTab" onclick="openTab('javascript')">Javascript</a></li>
     <li><a href="#python" class="tablinks" id="pythonTab" onclick="openTab('python')">Python</a></li>
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
+    <li><a href="#about" class="tablinks" id="aboutTab" onclick="openTab('about')">About</a></li>
 </ul>
 
 <div id="game" class="tabcontent">
@@ -57,6 +58,62 @@ for i in xrange(width):
             blocks[i][j][k] = bt.cobblestone
 
 drawBlocks(blocks)
+    </div>
+</div>
+
+<div id="about" class="tabcontent">
+    <div>
+        Knoxel aspires to bring the joy of Minecraft to CS-0 and CS-1 courses.
+    </div>
+    <div>
+        <p>Team Knoxcraft is:</p>
+        <table id="aboutTable">
+        <tr><td>
+                <img id="avatarHeadshot" src="/images/kakoijohnAvatar.png"> John Damits, Knox College '17, funded by the Mellon Foundation and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+        </td></tr>
+        <tr><td>
+            <img id="avatarHeadshot" src="/images/moemattAvatar.png"> Matt Moe, Knox College '17, funded by the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+        </td></tr>
+        <tr><td>
+            <img id="avatarHeadshot" src="/images/steveAvatar.png"> Lucas Kasser, Brown University '19
+        </td></tr>
+        <tr><td>
+            <img id="avatarHeadshot" src="/images/EmhastingsAvatar.png"> Emily Hastings, Knox College '16, funded by the <a href="https://www.knox.edu/Documents/PDFs/CRAS/ASSET%20Program%20Description.pdf"> ASSET </a> program, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+        
+        </td></tr>
+        <tr><td>
+            <img id="avatarHeadshot" src="/images/steveAvatar.png"> Michael Gerten, Knox College '16, funded by Knox's Baker-Velde award, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+        </td></tr>
+        <tr><td>
+            <img id="avatarHeadshot" src="/images/SpacdogAvatar.png"> Jaime Spacco, Haverford College '98
+        </td></tr>
+        </table>
+    </div>
+    <div>
+        <p>Knoxcraft is made possible by the following projects:</p>
+        <ul>
+            <li><a href="http://voxeljs.com/">VoxelJS</a>, blocks in yo browser (required <a href="http://get.webgl.org/">WebGL</a>)</li>
+            <li><a href="http://bdcraft.net/sphax-purebdcraft-texturepack">Sphax</a> texture pack</li>
+            <li><a href="https://skulpt.org/"> Skulpt</a></li>
+            <!--
+            <li><a href="https://minecraft.net/">Minecraft</a></li>
+            <li><a href="http://files.minecraftforge.net/">Minecraft Forge</a>, the community-supported moddable Minecraft server</li>
+            <li><a href="https://www.spongepowered.org/">Spongepowered</a>, a Minecraft modding API built on Forge</li>
+            <li><a href="https://www.javapoly.com/">JavaPoly</a>, Java(script) in your browser</li>
+            <li><a href="https://ace.c9.io">ACE editor</a>, part of <a href="https://c9.io/">Cloud9</a></li>
+            <li><a href="https://developers.google.com/blockly/">Blockly</a>, a block-based visual programming language</li>
+            <li><a href="http://www.eclipse.org/jetty/">Jetty</a>, a webserver and servlet container</li>
+            -->
+        </ul>
+    </div>
+    <div>
+        <p>Knoxel was inspired by, or is similar to, the following projects:</p>
+        <ul>
+            <li><a href="http://scriptcraftjs.org/">ScriptCraftJS</a>, which uses <a href="https://canarymod.net/">Canarymod</a></li>
+            <li><a href="http://computercraftedu.com/">ComputerCraftEDU</a></li>
+            <li><a href="https://en.wikipedia.org/wiki/Logo_(programming_language)">Seymour Papert's Logo</a></li>
+            <li><a href="http://coweb.cc.gatech.edu/mediaComp-plan">Media Computation</a></li>
+        </ul>
     </div>
 </div>
 
@@ -189,6 +246,7 @@ function runPython() {
     javascriptEditor.setTheme("ace/theme/twilight");
     javascriptEditor.getSession().setMode("ace/mode/javascript");
     javascriptEditor.setAutoScrollEditorIntoView(true);
+    javascriptEditor.setFontSize(20);
     var javascriptErrorMarkers = [];
 
     // setup the python ACE editor
@@ -196,6 +254,7 @@ function runPython() {
     pythonEditor.setTheme("ace/theme/twilight");
     pythonEditor.getSession().setMode("ace/mode/python");
     pythonEditor.setAutoScrollEditorIntoView(true);
+    pythonEditor.setFontSize(20);
     var pythonErrorMarkers = [];
 
     // attach the game object to the game div
