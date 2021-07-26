@@ -206,6 +206,7 @@ function createMaterials() {
     addMat("RED", "red");
     addMat("PINK", "pink");
     addMat("BLACK", "black");
+    addMat("YELLOW", "yellow");
 
     addMat("QUARTZ_BLOCK", ["quartz_block_side", "quartz_block_side", "quartz_block_top", "quartz_block_bottom", "quartz_block_side", "quartz_block_side"]);
 
