@@ -15,7 +15,7 @@ let game = createGame({
   chunkDistance: 2,
   materials: allMaterials,
   materialFlatColor: false,
-  texturePath: '/textures/'
+  texturePath: './textures/'
 });
 
 // function displayBlockLocation(x, y, z){

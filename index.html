@@ -2,7 +2,7 @@
 <head>
 <title>KnoxelJS</title>
 
-<link rel="stylesheet" type="text/css" href="/css/style.css">
+<link rel="stylesheet" type="text/css" href="./css/style.css">
 
 </head>
 <body>
@@ -69,23 +69,23 @@ drawBlocks(blocks)
         <p>Team Knoxcraft is:</p>
         <table id="aboutTable">
         <tr><td>
-                <img id="avatarHeadshot" src="/images/kakoijohnAvatar.png"> John Damits, Knox College '17, funded by the Mellon Foundation and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+                <img id="avatarHeadshot" src="./images/kakoijohnAvatar.png"> John Damits, Knox College '17, funded by the Mellon Foundation and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
         </td></tr>
         <tr><td>
-            <img id="avatarHeadshot" src="/images/moemattAvatar.png"> Matt Moe, Knox College '17, funded by the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+            <img id="avatarHeadshot" src="./images/moemattAvatar.png"> Matt Moe, Knox College '17, funded by the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
         </td></tr>
         <tr><td>
-            <img id="avatarHeadshot" src="/images/steveAvatar.png"> Lucas Kasser, Brown University '19
+            <img id="avatarHeadshot" src="./images/steveAvatar.png"> Lucas Kasser, Brown University '19
         </td></tr>
         <tr><td>
-            <img id="avatarHeadshot" src="/images/EmhastingsAvatar.png"> Emily Hastings, Knox College '16, funded by the <a href="https://www.knox.edu/Documents/PDFs/CRAS/ASSET%20Program%20Description.pdf"> ASSET </a> program, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+            <img id="avatarHeadshot" src="./images/EmhastingsAvatar.png"> Emily Hastings, Knox College '16, funded by the <a href="https://www.knox.edu/Documents/PDFs/CRAS/ASSET%20Program%20Description.pdf"> ASSET </a> program, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
         
         </td></tr>
         <tr><td>
-            <img id="avatarHeadshot" src="/images/steveAvatar.png"> Michael Gerten, Knox College '16, funded by Knox's Baker-Velde award, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
+            <img id="avatarHeadshot" src="./images/steveAvatar.png"> Michael Gerten, Knox College '16, funded by Knox's Baker-Velde award, and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
         </td></tr>
         <tr><td>
-            <img id="avatarHeadshot" src="/images/SpacdogAvatar.png"> Jaime Spacco, Haverford College '98
+            <img id="avatarHeadshot" src="./images/SpacdogAvatar.png"> Jaime Spacco, Haverford College '98
         </td></tr>
         </table>
     </div>
@@ -120,6 +120,15 @@ drawBlocks(blocks)
 
 <script>
 
+const getMethods = (obj) => {
+    let properties = new Set()
+    let currentObj = obj
+    do {
+        Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
+    } while ((currentObj = Object.getPrototypeOf(currentObj)))
+    return [...properties.keys()].filter(item => typeof obj[item] === 'function')
+}
+
 function openTab(tabName) {
     let tabcontent = document.getElementsByClassName("tabcontent");
     for (let i = 0; i < tabcontent.length; i++) {
@@ -136,8 +145,24 @@ function openTab(tabName) {
 function runJavascript() {
     let studentCode = javascriptEditor.getValue();
     // security risk, but it's all client-side code with no state, so I don't really care
-    eval(studentCode);
-    openTab('game');
+    try {
+        eval(studentCode);
+        openTab('game');
+    } catch (error) {
+        // TODO: set the markers
+        console.log(error);
+        console.log(error.lineNumber);
+        console.log(error.fileName);
+        console.log(error.message);
+        console.log(error.stack);
+        // if (error instanceof SyntaxError) {
+        //     //console.log(`SyntaxError ${error}`);
+        // }
+        // //let getMethods = (obj) => Object.getOwnPropertyNames(obj).filter(item => typeof obj[item] === 'function');
+        // for (let m of getMethods(error)) {
+        //     //console.log(m);
+        // }
+    }
 }
 
 function runPython() {
@@ -196,7 +221,7 @@ function runPython() {
 <!-- load code for the embedded ACE editor -->
 <script src="./ace-builds/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
 <script src="./ace-builds/src-min-noconflict/theme-twilight.js" type="text/javascript" charset="utf-8"></script>
-<script src="knoxel-bundle.js"></script>
+<script src="./knoxel-bundle.js"></script>
 <script src="./pykc/skulpt.min.js"></script>
 <script src="./pykc/skulpt-stdlib.js"></script>
 
@@ -206,7 +231,7 @@ function runPython() {
     var pykcCodeLen = -1;
     let client = new XMLHttpRequest();
     // 3rd paramter false makes this a synchronous request
-    client.open('GET', '/pykc/pykcbase.py', false);
+    client.open('GET', './pykc/pykcbase.py', false);
     client.onreadystatechange = function() {
       pykcLibraryCode = client.responseText+"\n\n";
       pykcCodeLen = pykcLibraryCode.split(/\r\n|\r|\n/).length;
