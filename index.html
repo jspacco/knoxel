@@ -24,7 +24,9 @@
 
 <div id="javascript" class="tabcontent editor" style="display:block;">
     <button id="runJavascript" onclick="runJavascript()">Run Javascript code!</button>
-
+    
+    <div id="javascriptErrors" class="error"></div>
+    
     <div id="javascriptEditor" class="editor">
 const width = 2;
 const depth = 3;
@@ -40,10 +42,16 @@ for (let w=0; w&lt;width; w++){
 }
 knoxel.drawBlocks(blocks);
     </div>
+    <div>
+        fuck this shit, why won't it show up?
+    </div>
+    
 </div>
 
 <div id="python" class="tabcontent editor">
     <button id="runPython" onclick="runPython()">Run Python code!</button>
+
+    <div id="pythonErrors" class="error"></div>
 
     <div id="pythonEditor" class="editor">
 width = 2
@@ -120,6 +128,14 @@ drawBlocks(blocks)
 
 <script>
 
+function setError(key, msg) {
+    document.getElementById(key).innerHTML = `<p>${msg}</p>`;
+}
+
+function clearError(key) {
+    document.getElementById(key).innerHTML = '';
+}
+
 const getMethods = (obj) => {
     let properties = new Set()
     let currentObj = obj
@@ -143,12 +159,14 @@ function openTab(tabName) {
 }
 
 function runJavascript() {
+    clearError('javascriptErrors');
     let studentCode = javascriptEditor.getValue();
     // security risk, but it's all client-side code with no state, so I don't really care
     try {
         eval(studentCode);
         openTab('game');
     } catch (error) {
+        setError('javascriptErrors', error.toString());
         // TODO: set the markers
         console.log(error);
         console.log(error.lineNumber);
@@ -174,6 +192,9 @@ function runPython() {
     pythonErrorMarkers = [];
     pythonEditor.resize();
 
+    // clear error div
+    clearError('pythonErrors');
+
     // get student code from editor, then paste our base code in front of it
     let studentCode = pythonEditor.getValue();
     let fullCode = pykcLibraryCode + studentCode;
@@ -191,6 +212,10 @@ function runPython() {
         // rewrite error messages to subtract off the length of our base code
         // TODO: mark the error message in the editor
         let errmsg = err.toString();
+        
+        // set error div
+        setError('pythonErrors', errmsg);
+        
         // TODO: better post-processing of errors
         let regex = /line ([0-9]+)/g;
         let newmsg = errmsg;

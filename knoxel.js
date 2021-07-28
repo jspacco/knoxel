@@ -84,7 +84,7 @@ for (let z=0; z<=3; z++){
 }
 
 let createPlayer = require('voxel-player')(game);
-let player = createPlayer('spacdog.png');
+let player = createPlayer('./images/spacdog.png');
 player.possess();
 player.position.set(0,5,5);
 

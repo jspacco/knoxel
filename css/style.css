@@ -13,6 +13,11 @@
     display: block;
     text-align: center;
 }
+
+.error {
+    font-size: 32px;
+    text-align: left;
+}
   
 #sidebyside {
     width: 100%;
