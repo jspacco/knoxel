@@ -1,5 +1,5 @@
 node_modules
 ace-builds
 *bundle.js
-java/Knoxel.java
+java/BlockType.java
 pykc/pykcbase.py
