@@ -1,14 +1,24 @@
 #!/bin/bash
 
+# This has basically become a Makefile, ugh
+
 # where to copy our source files?
 # make sure directory exists
 dst=../jspacco.github.io/knoxel
 mkdir $dst
 
-# target for pykcbase file
+# target for the pykcbase file
 pykcbase=pykc/pykcbase.py
 
+# Java BlockType enum filename
+javablocktype=java/BlockType.java
+
+# create the pykc enum for Python code
 python3 makepykc.py > $pykcbase
+
+# Create BlockType file for Java
+# TODO: also create a BlueJ project, and copy it over
+python3 makejava.py > $javablocktype
 
 # browserify knoxel code into the knoxel package for import by the browser
 browserify knoxel.js --s knoxel -o knoxel-bundle.js
