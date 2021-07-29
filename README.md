@@ -2,13 +2,16 @@
 
 ## TODO
 * Should we name it Knoxcraft after all? Knoxel / KnoxelJS is probably more unique
-* About page (grab MC images of former students)
 * Instructions
     * Show all of the possible textures
-* put onto `jspacco.github.io`
-    * it has a lot of files, so some kind of sub-folder in _site
-    * Update `jspacco.github.io` while we're at it
+    * demo what it does with pictures
+    * FAQ
+    * BlueJ/JGrasp support
+* Turn debugging on/off for some console messages with a setting that we can flip in knoxel.js
+* Better error handling for bad JSON files
 * Textures!
+    * standardize textures
+        * common list of textures in one place that gets turned into javascript and Python
     * everything through LAPIS_LAZULI_ORE works, nothing after it works
     * Need a way to list/show textures, possibly in a separate tab
     * Add textures of various colors that we can just kind of drop in
@@ -19,13 +22,15 @@
 * draw text onto the screen anywhere? what else can we do with voxel?
     * check @deathcap's fork, it seems more up to date than maxogden
         * would need to figure out how to import into node_modules from github?
+* generate links to programs using the URL somehow
+* Turn on Google analytics!
+* Use the item menu bar to show coordinates of things we click on?
 * get rid of the little status thing, it's annoying
 * fix webgl errors
 * check other voxeljs features to see what else we might want to add
 * Placeholders for student-side debugging (width, depth, height, blocks, etc)
 * fix ACE error handling 
     * highlighting line numbers for errors
-    * add a div to show/hide errors
 * BlueJ/JGrasp Java support
 
 ## Stretch Goals

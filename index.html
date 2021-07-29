@@ -42,10 +42,7 @@ for (let w=0; w&lt;width; w++){
 }
 knoxel.drawBlocks(blocks);
     </div>
-    <div>
-        fuck this shit, why won't it show up?
-    </div>
-    
+
 </div>
 
 <div id="python" class="tabcontent editor">
@@ -74,7 +71,7 @@ drawBlocks(blocks)
         Knoxel aspires to bring the joy of Minecraft to CS-0 and CS-1 courses.
     </div>
     <div>
-        <p>Team Knoxcraft is:</p>
+        <p>Many students have made contributions to Knoxcraft over the years! They are: </p>
         <table id="aboutTable">
         <tr><td>
                 <img id="avatarHeadshot" src="./images/kakoijohnAvatar.png"> John Damits, Knox College '17, funded by the Mellon Foundation and the <a href="https://www.knox.edu/academics/research-and-creative-work/student-research-grants/richter-awards">Richter Memorial Trust</a>
@@ -101,10 +98,11 @@ drawBlocks(blocks)
         <p>Knoxcraft is made possible by the following projects:</p>
         <ul>
             <li><a href="http://voxeljs.com/">VoxelJS</a>, blocks in yo browser (required <a href="http://get.webgl.org/">WebGL</a>)</li>
-            <li><a href="http://bdcraft.net/sphax-purebdcraft-texturepack">Sphax</a> texture pack</li>
+            <li><a href="http://bdcraft.net/sphax-purebdcraft-texturepack">Sphax texture pack</a></li>
             <li><a href="https://skulpt.org/"> Skulpt</a></li>
+            <li><a href="https://icons8.com/license">Icons8 (for the numbered icons)</a></li>
             <!--
-            <li><a href="https://minecraft.net/">Minecraft</a></li>
+            
             <li><a href="http://files.minecraftforge.net/">Minecraft Forge</a>, the community-supported moddable Minecraft server</li>
             <li><a href="https://www.spongepowered.org/">Spongepowered</a>, a Minecraft modding API built on Forge</li>
             <li><a href="https://www.javapoly.com/">JavaPoly</a>, Java(script) in your browser</li>
@@ -117,32 +115,25 @@ drawBlocks(blocks)
     <div>
         <p>Knoxel was inspired by, or is similar to, the following projects:</p>
         <ul>
-            <li><a href="http://scriptcraftjs.org/">ScriptCraftJS</a>, which uses <a href="https://canarymod.net/">Canarymod</a></li>
+            <li><a href="https://minecraft.net/">Minecraft</a></li>
+            <li><a href="http://scriptcraftjs.org/">ScriptCraftJS</a>, which uses (now defunct) <a href="https://canarymod.net/">Canarymod</a></li>
             <li><a href="http://computercraftedu.com/">ComputerCraftEDU</a></li>
             <li><a href="https://en.wikipedia.org/wiki/Logo_(programming_language)">Seymour Papert's Logo</a></li>
-            <li><a href="http://coweb.cc.gatech.edu/mediaComp-plan">Media Computation</a></li>
+            <li><a href="http://coweb.cc.gatech.edu/mediaComp-teach">Media Computation</a></li>
         </ul>
     </div>
 </div>
 
 
 <script>
-
+//
+// show/clear errors from attempting to compile
+//
 function setError(key, msg) {
     document.getElementById(key).innerHTML = `<p>${msg}</p>`;
 }
-
 function clearError(key) {
     document.getElementById(key).innerHTML = '';
-}
-
-const getMethods = (obj) => {
-    let properties = new Set()
-    let currentObj = obj
-    do {
-        Object.getOwnPropertyNames(currentObj).map(item => properties.add(item))
-    } while ((currentObj = Object.getPrototypeOf(currentObj)))
-    return [...properties.keys()].filter(item => typeof obj[item] === 'function')
 }
 
 function openTab(tabName) {
@@ -161,25 +152,31 @@ function openTab(tabName) {
 function runJavascript() {
     clearError('javascriptErrors');
     let studentCode = javascriptEditor.getValue();
-    // security risk, but it's all client-side code with no state, so I don't really care
     try {
+        // security risk, but it's all client-side code with no state, so we don't really care
         eval(studentCode);
         openTab('game');
     } catch (error) {
         setError('javascriptErrors', error.toString());
-        // TODO: set the markers
+        // TODO: set the markers in ACE
+        // 
+        // Unfortunately, the format for an error message coming from eval
+        // is not standarized across browsers. Errors are likely to generate
+        // either ReferenceError (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError)
+        // or SyntaxError (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError)
+        // but the only given is the message. The fields for lineNumber, fileName, and stack
+        // vary between Chrome and Firefox, and I haven't been able to test IE.
+        // 
+        // I looked into parsing the text of the full error message to get out
+        // the line number, but there are not always line numbers available,
+        // plus it's hard for me to text IE since I don't have easy access
+        // to a Windows machine, so I just gave up on this part.
+        //
         console.log(error);
-        console.log(error.lineNumber);
-        console.log(error.fileName);
-        console.log(error.message);
-        console.log(error.stack);
-        // if (error instanceof SyntaxError) {
-        //     //console.log(`SyntaxError ${error}`);
-        // }
-        // //let getMethods = (obj) => Object.getOwnPropertyNames(obj).filter(item => typeof obj[item] === 'function');
-        // for (let m of getMethods(error)) {
-        //     //console.log(m);
-        // }
+        // console.log(error.lineNumber);
+        // console.log(error.fileName);
+        // console.log(error.message);
+        // console.log(error.stack);
     }
 }
 
