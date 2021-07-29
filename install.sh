@@ -5,6 +5,11 @@
 dst=../jspacco.github.io/knoxel
 mkdir $dst
 
+# target for pykcbase file
+pykcbase=pykc/pykcbase.py
+
+python3 makepykc.py > $pykcbase
+
 # browserify knoxel code into the knoxel package for import by the browser
 browserify knoxel.js --s knoxel -o knoxel-bundle.js
 
