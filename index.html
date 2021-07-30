@@ -18,6 +18,8 @@
     <input type="file" id="loadDrawing" class="inputfile">
     <label for="loadDrawing">Load Drawing from JSON</label>
     
+    <div id="loadDrawingErrors" class="error"></div>
+    
     <div id="gamediv" class="game">
     </div>
 </div>
@@ -320,8 +322,19 @@ function runPython() {
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));
 
+    // wrapper function
+    function loadDrawingWrapper(event) {
+        clearError('loadDrawingErrors');
+        try {
+            knoxel.loadDrawing(event);
+        } catch (error) {
+            console.log(`FUNGUS FUCK ${error}\n`);
+            setError('loadDrawingErrors', error);            
+        }
+    }
+
     // set the event handler for upload drawing files
-    document.getElementById("loadDrawing").onchange = knoxel.loadDrawing;
+    document.getElementById("loadDrawing").onchange = loadDrawingWrapper;
 
 </script>
 

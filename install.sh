@@ -28,7 +28,8 @@ tocopy="index.html knoxel-bundle.js textures css pykc images"
 
 # necessary because we want only these 2 files, 
 # but we also want the directory structure
-acecode="ace-builds/src-min-noconflict/ace.js ace-builds/src-min-noconflict/theme-twilight.js ace-builds/src-min-noconflict/mode-javascript.js ace-builds/src-min-noconflict/mode-python.js ace-builds/src-min-noconflict/mode-java.js"
+acepath=ace-builds/src-min-noconflict
+acecode="$acepath/ace.js $acepath/theme-twilight.js $acepath/mode-javascript.js $acepath/mode-python.js $acepath/mode-java.js $acepath/worker-javascript.js"
 
 echo $tocopy
 cp -r $tocopy $dst
