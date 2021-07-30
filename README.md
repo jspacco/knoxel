@@ -8,8 +8,8 @@
     * FAQ
     * BlueJ/JGrasp support
 * Turn debugging on/off for some console messages with a setting that we can flip in knoxel.js
-* Better error handling for bad JSON files
 * Textures!
+    * textures only do 4 chunks (64 blocks) and then get cutoff, so we need to fix this part first
     * standardize textures
         * common list of textures in one place that gets turned into javascript and Python
     * everything through LAPIS_LAZULI_ORE works, nothing after it works
@@ -18,6 +18,7 @@
         * https://www.pixilart.com/draw/16x16-b3bc604165f0096
         * my red, pink are probably wrong?
 * clicking should reveal the names of textures somehow
+    * steal the code for voxel-voila to add the div for us
 * grid outline of the whole thing that we just dropped into place as debugging
 * draw text onto the screen anywhere? what else can we do with voxel?
     * check @deathcap's fork, it seems more up to date than maxogden
