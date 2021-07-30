@@ -99,7 +99,8 @@ async function loadDrawing(evt) {
     console.log("Loading drawing!");
     // Incredibly complicated and convoluated way to read a file in JS, ugh
     let file = evt.target.files[0];
-    function readFile() {
+
+    function readFileHelp() {
         let reader = new FileReader();
         return new Promise((resolve, reject) => {
             reader.onerror = () => {
@@ -109,23 +110,22 @@ async function loadDrawing(evt) {
             reader.onload = () => {
                 resolve(reader.result);
             };
-            reader.readAsText(evt.target.files[0]);
+            reader.readAsText(file);
         });
     }
 
     // await needs to be enclosed in an async function, which is why
     // the function containing this is marked async
-    let text = await readFile();
-    
+    let text = await readFileHelp();
+
     console.log(text);
     try {
         updateDrawing(text);
     } catch (error) {
-        console.log(`fartufcker ${error}`);
+        console.log(`error with updateDrawing: ${error}, ${typeof error}`);
         throw error;
     }
 }
-
   
 function updateDrawing(result) {
     let obj = JSON.parse(result);
@@ -135,14 +135,7 @@ function updateDrawing(result) {
     console.log("width = "+obj.width);
     console.log("depth = "+obj.depth);
     console.log("height = "+obj.height);
-    // document.getElementById('length').innerHTML = obj.length;
-    // document.getElementById('width').innerHTML = obj.width;
-    // document.getElementById('height').innerHTML = obj.height;
-    // var blocks = obj.blocks;
-    //for (var x = 0; x < blocks.length; x++) {
-    //for (var z = 0; z < blocks[z].length; z++){
     drawBlocks(obj.blocks);
-    return 0;
 }
 
 const makeGrid = function(width, depth, height) {

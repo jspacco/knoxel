@@ -325,12 +325,13 @@ function runPython() {
     // wrapper function
     function loadDrawingWrapper(event) {
         clearError('loadDrawingErrors');
-        try {
-            knoxel.loadDrawing(event);
-        } catch (error) {
-            console.log(`FUNGUS FUCK ${error}\n`);
-            setError('loadDrawingErrors', error);            
-        }
+        // using then/catch because knoxel returns a promise
+        knoxel.loadDrawing(event).then( () => {
+            // do nothing
+        }).catch( (error) => {
+            //console.log(`FUNGUS FUCK ${error}\n`);
+            setError('loadDrawingErrors', error);  
+        });
     }
 
     // set the event handler for upload drawing files
