@@ -11,6 +11,7 @@
     <li><a href="#javascript" class="tablinks active" id="javascriptTab" onclick="openTab('javascript')">Javascript</a></li>
     <li><a href="#python" class="tablinks" id="pythonTab" onclick="openTab('python')">Python</a></li>
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
+    <li><a href="#textures" class="tablinks" id="texturesTab" onclick="openTab('textures')">Textures</a></li>
     <li><a href="#about" class="tablinks" id="aboutTab" onclick="openTab('about')">About</a></li>
 </ul>
 
@@ -125,6 +126,8 @@ drawBlocks(blocks)
         </ul>
     </div>
 </div>
+
+<div id="textures" class="tabcontent"></div>
 
 
 <script>
@@ -321,6 +324,9 @@ function runPython() {
 
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));
+
+    // set the textures table
+    document.getElementById("textures").appendChild(knoxel.textureTable);
 
     // wrapper function
     function loadDrawingWrapper(event) {
