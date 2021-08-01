@@ -8,8 +8,9 @@
         * download of a sample BlueJ project
 * Turn debugging on/off for some console messages with a setting that we can flip in knoxel.js
 * # style for the textures listing
+* labels on the x, z, y axes (numbers and also x,y,z)
 * Textures!
-    * textures only do 4 chunks (64 blocks) and then get cutoff, so we need to fix this part first
+    * can only render 256 blocks away from the player due to how chunk loading works
     * Add textures of various colors that we can just kind of drop in
         * https://www.pixilart.com/draw/16x16-b3bc604165f0096
         * my red, pink are probably wrong?
