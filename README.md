@@ -1,13 +1,13 @@
 # Knoxel JS: A Voxel-based browser coding experience
 
 ## TODO
-* Should we name it Knoxcraft after all? Knoxel / KnoxelJS is probably more unique
 * Instructions
     * demo what it does with pictures
     * FAQ
     * BlueJ/JGrasp support
         * download of a sample BlueJ project
 * Turn debugging on/off for some console messages with a setting that we can flip in knoxel.js
+* # style for the textures listing
 * Textures!
     * textures only do 4 chunks (64 blocks) and then get cutoff, so we need to fix this part first
     * Add textures of various colors that we can just kind of drop in
