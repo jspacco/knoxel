@@ -93,7 +93,7 @@ function makeGame() {
         generate: function(x, y, z) {
             return y === 0 ? materialLookup['GRASS'] : 0;
         },
-        chunkDistance: 2,
+        chunkDistance: 4,
         materials: allMaterials,
         materialFlatColor: false,
         texturePath: './textures/'
