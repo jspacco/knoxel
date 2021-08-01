@@ -1,5 +1,5 @@
 const [allMaterials, materialLookup, textureTable] = createMaterials();
-let game = makeGame();
+let [game, waila] = makeGame();
 
 function createMaterials() {
     let allMaterials = [];
@@ -99,29 +99,7 @@ function makeGame() {
         texturePath: './textures/'
     });
 
-    // Try to set up click handlers
-    let createReach = require('voxel-reach');
-    let reach = createReach(game, {reachDistance: 8});
-
-    reach.on('use', function(target) {
-        // right-click
-        if (target){
-            let x = target.voxel[0];
-            let y = target.voxel[1];
-            let z = target.voxel[2];
-            console.log("use x,y,z = ("+x+","+y+","+z+")");
-        }
-    });
-
-    reach.on('mining', function(target) {
-        // left-click
-        if (target){
-            let x = target.voxel[0];
-            let y = target.voxel[1];
-            let z = target.voxel[2];
-            console.log("mine x,y,z = ("+x+","+y+","+z+")");
-        }
-    });
+    
 
     // TODO: numbered axes with x, y, z
     // Set origin to RED_WOOL
@@ -153,8 +131,63 @@ function makeGame() {
     hl.on('highlight', function (voxelPos) { highlightPos = voxelPos })
     hl.on('remove', function (voxelPos) { highlightPos = null })
 
+    // hacking in my own version of Deathcap's voxel-voila
+    // https://github.com/voxel/voxel-voila/blob/master/voila.js
+    let node = document.createElement('span');
+    node.setAttribute('id', 'waila');
+    node.setAttribute('style', `
+background-image: linear-gradient(rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.6) 100%);
+visibility: hidden;
+color: white;
+font-size: 18pt;
+`);
+
+    node.textContent = '';
+
+    const container = document.createElement('div');
+    container.setAttribute('style', `
+position: absolute;
+top: 0px;
+width: 100%;
+text-align: center;
+`);
+
+    container.appendChild(node);
+    //document.body.appendChild(container);
+
+    // Try to set up click handlers
+    // these should update the node we just created
+    let createReach = require('voxel-reach');
+    let reach = createReach(game, {reachDistance: 8});
+
+    reach.on('use', function(target) {
+        // right-click
+        if (target){
+            let x = target.voxel[0];
+            let y = target.voxel[1];
+            let z = target.voxel[2];
+            
+        }
+    });
+
+    reach.on('mining', function(target) {
+        // left-click
+        if (target){
+            let x = target.voxel[0];
+            let y = target.voxel[1];
+            let z = target.voxel[2];
+            console.log("mine x,y,z = ("+x+","+y+","+z+")");
+            //console.log("use x,y,z = ("+x+","+y+","+z+")");
+            let blockIndex = game.getBlock(target.voxel);
+            let texture = allMaterials[blockIndex];
+            console.log(`blockIndex = ${blockIndex}, texture = ${texture}`);
+            node.textContent = texture;
+            node.style.visibility = '';
+        }
+    });
+
     // return the voxel game object we created
-    return game;
+    return [game, container];
 }
 
 //
@@ -262,5 +295,6 @@ module.exports.textureTable = textureTable;
 for (let material of Object.keys(materialLookup)) {
     module.exports[material.toLowerCase()] = material;
 }
+module.exports.waila = waila;
 //module.exports.allMaterials = allMaterials;
 //module.exports.materialLookup = materialLookup;
