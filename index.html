@@ -335,7 +335,6 @@ function runPython() {
         knoxel.loadDrawing(event).then( () => {
             // do nothing
         }).catch( (error) => {
-            //console.log(`FUNGUS FUCK ${error}\n`);
             setError('loadDrawingErrors', error);  
         });
     }
