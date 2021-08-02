@@ -1,6 +1,6 @@
 const [allMaterials, materialLookup, reverseMaterialLookup, textureTable] = createMaterials();
 let [width, depth, height] = [null, null, null];
-let axesOn = true;
+let opts = {axesOn : true};
 let [game, waila] = makeGame();
 
 function createMaterials() {
@@ -280,7 +280,7 @@ const blockify = function(grid) {
 function code2GameCoords(w, d, h) {
     // map from x,z,y in 3D array coords to x,y+1,-z in game coords
     // this is just x, y+1, -z
-    return [w, h+1, -d];
+    return [w, -d, h+1];
 }
 
 function game2CodeCoords(x, y, z) {
@@ -289,11 +289,6 @@ function game2CodeCoords(x, y, z) {
 
 // TODO: pick up here! set up the axes
 function makeAxes() {
-    // X coords are 1, 2, or 3 digits long
-    // digit 1 goes at z=1
-    // digit 2 goes at z=2
-    // digit 3 goes at z=3
-    // if there is no digit, we don't draw it
     function getNum(val) {
         return `num${val}`;
     }
@@ -345,7 +340,7 @@ function makeAxes() {
     }
 
     // y labels
-    for (let y=0; y<depth; y++) {
+    for (let y=0; y<height; y++) {
         if (y > 99) {
             // 100 to 999
             let digit3 = Math.floor(y / 100);
@@ -382,13 +377,13 @@ const drawBlocks = function(blocks) {
                     // map null to AIR
                     block = 0;
                 }
-                console.log(`set block ${x}, ${z}, ${y}, coords (${code2GameCoords(x, y, z)}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
-                game.setBlock(code2GameCoords(x, y, z), materialLookup[block]);
+                console.log(`set block ${x}, ${z}, ${y}, coords (${x}, ${y+1}, ${-z}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
+                game.setBlock([x, y+1, -z], materialLookup[block]);
             }
         }
     }
     // should we draw axes?
-    if (axesOn) makeAxes();
+    if (opts.axesOn) makeAxes();
 }
 
 
@@ -404,5 +399,6 @@ for (let material of Object.keys(materialLookup)) {
     module.exports[material.toLowerCase()] = material;
 }
 module.exports.waila = waila;
+module.exports.opts = opts;
 //module.exports.allMaterials = allMaterials;
 //module.exports.materialLookup = materialLookup;
