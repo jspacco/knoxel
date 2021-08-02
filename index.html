@@ -16,13 +16,26 @@
 </ul>
 
 <div id="game" class="tabcontent">
-    <input type="file" id="loadDrawing" class="inputfile">
-    <label for="loadDrawing">Load Drawing from JSON</label>
+    <div class="sidebyside">
+        <div class="divrow">
+            <div class="divcol">
+                <input type="file" id="loadDrawing" class="inputfile">
+                <label for="loadDrawing">Load Drawing from JSON</label>
+            </div>
+            <div class="divcol" onclick="toggleOption('axesOn')">
+                <input id="axesOn" name="axesOn" type="checkbox" checked onchange="toggleOption('axesOn')"/>
+                <label >Draw Axes</label>
+            </div>
+            <div class="divcol" onclick="toggleOption('debugOn')">
+                <input id="debugOn" name="debugOn" type="checkbox" onchange="toggleOption('debugOn')"/>
+                <label >show console.log</label>
+            </div>
+        </div>
+    </div>
     
     <div id="loadDrawingErrors" class="error"></div>
     
-    <div id="gamediv" class="container">
-    </div>
+    <div id="gamediv" class="container"></div>
 </div>
 
 <div id="javascript" class="tabcontent editor" style="display:block;">
@@ -341,6 +354,15 @@ function runPython() {
 
     // set the event handler for upload drawing files
     document.getElementById("loadDrawing").onchange = loadDrawingWrapper;
+
+    //
+    // toggle an option
+    //
+    function toggleOption(key) {
+        console.log('toggle');
+        document.getElementById(key).checked = !document.getElementById(key).checked;
+        knoxel.opts[key] = !knoxel.opts[key];
+    }
 
     // try to add the waila container
     // https://stackoverflow.com/questions/26793247/how-to-overlay-a-div-over-a-canvas-css/26793302

@@ -37,10 +37,7 @@
     text-align: left;
 }
   
-#sidebyside {
-    width: 100%;
-    overflow: hidden;
-}
+
 #editorDiv {
     /* includes the compile/run buttons */
     min-width: 60%;
@@ -242,4 +239,17 @@ ul.tab li a:focus, .active {
 #aboutTable {
     table-layout: auto;
 }
-  
+
+.sidebyside {
+    width: 100%;
+    display: table;
+}
+
+.divrow {
+    display: table-row;
+}
+
+.divcol {
+    display: table-cell;
+    border: 3px solid black;
+}

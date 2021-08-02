@@ -1,6 +1,6 @@
 const [allMaterials, materialLookup, reverseMaterialLookup, textureTable] = createMaterials();
 let [width, depth, height] = [null, null, null];
-let opts = {axesOn : true};
+let opts = {axesOn : true, debugOn: false};
 let [game, waila] = makeGame();
 
 function createMaterials() {
@@ -83,7 +83,9 @@ function createMaterials() {
     return [allMaterials, materialLookup, reverseMaterialLookup, textureTable];
 }
 
-
+function debug(msg) {
+    if (opts.debugOn) console.log(msg);
+}
 
 function makeGame() {
     let createGame = require('voxel-engine');
@@ -166,9 +168,9 @@ function makeGame() {
             let x = target.voxel[0];
             let y = target.voxel[1];
             let z = target.voxel[2];
-            console.log(`use x,y,z = (${x}, ${y}, ${z})`);
-            //console.log(allMaterials);
-            //console.log(materialLookup);
+            debug(`use x,y,z = (${x}, ${y}, ${z})`);
+            //debug(allMaterials);
+            //debug(materialLookup);
             // do nothing on use; this is just here in case we want to add a handler for this
         }
     });
@@ -195,7 +197,7 @@ function makeGame() {
                 // if we are in range of our drawing, clicking shows the coords in code-space
                 msg += `<br>blocks[${w}][${d}][${h}]`;
             }
-            console.log(`mine x,y,z = (${x}, ${y}, ${z}) blockIndex = ${blockIndex}, blockType = ${blockType}, waila width=${width}, depth=${depth}, height=${height}`);
+            debug(`mine x,y,z = (${x}, ${y}, ${z}) blockIndex = ${blockIndex}, blockType = ${blockType}, waila width=${width}, depth=${depth}, height=${height}`);
             setWaila(msg);
             node.style.setProperty('visibility', 'visible', 'important');
         }
@@ -209,7 +211,7 @@ function makeGame() {
 // load a JSON drawing file
 //
 async function loadDrawing(evt) {
-    console.log("Loading drawing!");
+    debug("Loading drawing!");
     // Incredibly complicated and convoluated way to read a file in JS, ugh
     let file = evt.target.files[0];
 
@@ -234,7 +236,7 @@ async function loadDrawing(evt) {
     try {
         updateDrawing(text);
     } catch (error) {
-        console.log(`error with updateDrawing: ${error}, ${typeof error}`);
+        debug(`error with updateDrawing: ${error}, ${typeof error}`);
         throw error;
     }
 }
@@ -244,7 +246,7 @@ function updateDrawing(result) {
     depth = parseInt(obj.depth);
     width = parseInt(obj.width);
     height = parseInt(obj.height);
-    //console.log(`upload drawing with width = ${obj.width}, depth=${depth}, height=${height}`);
+    //debug(`upload drawing with width = ${obj.width}, depth=${depth}, height=${height}`);
     drawBlocks(obj.blocks);
 }
 
@@ -377,7 +379,7 @@ const drawBlocks = function(blocks) {
                     // map null to AIR
                     block = 0;
                 }
-                console.log(`set block ${x}, ${z}, ${y}, coords (${x}, ${y+1}, ${-z}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
+                debug(`set block ${x}, ${z}, ${y}, coords (${x}, ${y+1}, ${-z}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
                 game.setBlock([x, y+1, -z], materialLookup[block]);
             }
         }
