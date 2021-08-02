@@ -1,5 +1,6 @@
 const [allMaterials, materialLookup, reverseMaterialLookup, textureTable] = createMaterials();
 let [width, depth, height] = [null, null, null];
+let axesOn = true;
 let [game, waila] = makeGame();
 
 function createMaterials() {
@@ -286,6 +287,86 @@ function game2CodeCoords(x, y, z) {
     return [x, -z, y-1];
 }
 
+// TODO: pick up here! set up the axes
+function makeAxes() {
+    // X coords are 1, 2, or 3 digits long
+    // digit 1 goes at z=1
+    // digit 2 goes at z=2
+    // digit 3 goes at z=3
+    // if there is no digit, we don't draw it
+    function getNum(val) {
+        return `num${val}`;
+    }
+
+    if (width == null || depth == null || height == null) return;
+    
+    // x labels
+    for (let x=0; x<width; x++) {
+        if (x > 99) {
+            // 100 to 999
+            let digit3 = Math.floor(x / 100);
+            game.setBlock([x, 0, 1], getNum(digit3));
+            let digit2 = Math.floor(x / 10) % 10;
+            game.setBlock([x, 0, 2], getNum(digit2));
+            let digit1 = x % 10;
+            game.setBlock([x, 0, 3], getNum(digit1));
+        } else if (x > 9) {
+            // 10 to 99
+            let digit2 = Math.floor(x / 10);
+            game.setBlock([x, 0, 1], getNum(digit2));
+            let digit1 = x % 10;
+            game.setBlock([x, 0, 2], getNum(digit1));
+        } else {
+            // x from 0 to 9
+            game.setBlock([x, 0, 1], getNum(x));
+        }
+    }
+
+    // z labels
+    for (let z=0; z<depth; z++) {
+        if (z > 99) {
+            // 100 to 999
+            let digit3 = Math.floor(z / 100);
+            game.setBlock([-1, 0, -z], getNum(digit3));
+            let digit2 = Math.floor(z / 10) % 10;
+            game.setBlock([-2, 0, -z], getNum(digit2));
+            let digit1 = z % 10;
+            game.setBlock([-3, 0, -z], getNum(digit1));
+        } else if (z > 9) {
+            // 10 to 99
+            let digit2 = Math.floor(z / 10) % 10;
+            game.setBlock([-1, 0, -z], getNum(digit2));
+            let digit1 = z % 10;
+            game.setBlock([-2, 0, -z], getNum(digit1));
+        } else {
+            // x from 0 to 9
+            game.setBlock([-1, 0, -z], getNum(z));
+        }
+    }
+
+    // y labels
+    for (let y=0; y<depth; y++) {
+        if (y > 99) {
+            // 100 to 999
+            let digit3 = Math.floor(y / 100);
+            game.setBlock([-1, y+1, 1], getNum(digit3));
+            let digit2 = Math.floor(y / 10) % 10;
+            game.setBlock([0, y+1, 1], getNum(digit2));
+            let digit1 = y % 10;
+            game.setBlock([1, y+1, 1], getNum(digit1));
+        } else if (y > 9) {
+            // 10 to 99
+            let digit2 = Math.floor(y / 10) % 10;
+            game.setBlock([-1, y+1, 1], getNum(digit2));
+            let digit1 = y % 10;
+            game.setBlock([0, y+1, 1], getNum(digit1));
+        } else {
+            // 0 to 9
+            game.setBlock([-1, y+1, 1], getNum(y));
+        }
+    }
+}
+
 const drawBlocks = function(blocks) {
     width = blocks.length;
     depth = blocks[0].length;
@@ -306,6 +387,8 @@ const drawBlocks = function(blocks) {
             }
         }
     }
+    // should we draw axes?
+    if (axesOn) makeAxes();
 }
 
 
