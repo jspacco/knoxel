@@ -2,4 +2,6 @@ node_modules
 ace-builds
 *bundle.js
 java/BlockType.java
+java/*class
+java/*json
 pykc/pykcbase.py
