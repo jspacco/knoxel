@@ -253,3 +253,16 @@ ul.tab li a:focus, .active {
     display: table-cell;
     border: 3px solid black;
 }
+
+.imgcontainer {
+    margin: 0;
+    padding: 0;
+}
+
+.imgbox {
+    display: grid;
+}
+.center-fit {
+    max-width: 100%;
+    margin: auto;
+}

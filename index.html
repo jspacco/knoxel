@@ -4,6 +4,16 @@
 
 <link rel="stylesheet" type="text/css" href="./css/style.css">
 
+<script type="text/javascript">
+    // Set up Google analytics
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-83001326-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+
 </head>
 <body>
 
@@ -13,6 +23,7 @@
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
     <li><a href="#textures" class="tablinks" id="texturesTab" onclick="openTab('textures')">Textures</a></li>
     <li><a href="#about" class="tablinks" id="aboutTab" onclick="openTab('about')">About</a></li>
+    <li><a href="#help" class="tablinks" id="helpTab" onclick="openTab('help')">Help</a></li>
 </ul>
 
 <div id="game" class="tabcontent">
@@ -23,7 +34,7 @@
                 <label for="loadDrawing">Load Drawing from JSON</label>
             </div>
             <div class="divcol" onclick="toggleOption('axesOn')">
-                <input id="axesOn" name="axesOn" type="checkbox" checked onchange="toggleOption('axesOn')"/>
+                <input id="axesOn" name="axesOn" type="checkbox" onchange="toggleOption('axesOn')"/>
                 <label >Draw Axes</label>
             </div>
             <div class="divcol" onclick="toggleOption('debugOn')">
@@ -132,12 +143,41 @@ drawBlocks(blocks)
         <p>Knoxel was inspired by, or is similar to, the following projects:</p>
         <ul>
             <li><a href="https://minecraft.net/">Minecraft</a></li>
-            <li><a href="http://scriptcraftjs.org/">ScriptCraftJS</a>, which uses (now defunct) <a href="https://canarymod.net/">Canarymod</a></li>
+            <li><a href="http://scriptcraftjs.org/">ScriptCraftJS</a>, which originally used (now defunct) <a href="https://canarymod.net/">Canarymod</a></li>
             <li><a href="http://computercraftedu.com/">ComputerCraftEDU</a></li>
             <li><a href="https://en.wikipedia.org/wiki/Logo_(programming_language)">Seymour Papert's Logo</a></li>
             <li><a href="http://coweb.cc.gatech.edu/mediaComp-teach">Media Computation</a></li>
         </ul>
     </div>
+</div>
+
+<div id="help" class="tabcontent">
+    <h2>How do coordinates in Knoxel work?</h2>
+    <div>
+        <p>
+        Knoxel drawings are 3D volumes made up of 3D arrays of width, depth, and height. 
+        The coordinates are in that order, blocks[width][depth][height]. In Voxel-based 
+        worlds like Minecraft, the X-coordinate (i.e. blocks[x]) is the width;
+        while the Z-coordinate (i.e. blocks[x][z]) is depth,
+        and is the 2nd coordinate in our 3D array; then the Y-coordinate (i.e. blocks[x][z][y]) is the height, 
+        and is the 3rd coordinate in our 3D array.
+        </p>
+        <p>
+            Here is a diagram that illustrates these concepts in more detail:
+        </p>
+    </div>
+    <div class="imgcontainer">
+        <div class="imgbox">
+            <img class="center-fit" src="./images/help1.png"/>
+        </div>
+    </div>
+
+    <h2>I found a problem! Where can I file a bug report?</h2>
+    <div>
+        The code for Knoxel is here:
+        <a href="https://github.com/jspacco/knoxel">https://github.com/jspacco/knoxel</a>
+    </div>
+    
 </div>
 
 <div id="textures" class="tabcontent"></div>
@@ -359,7 +399,6 @@ function runPython() {
     // toggle an option
     //
     function toggleOption(key) {
-        console.log('toggle');
         document.getElementById(key).checked = !document.getElementById(key).checked;
         knoxel.opts[key] = !knoxel.opts[key];
     }
