@@ -73,7 +73,7 @@ knoxel.drawBlocks(blocks);
 </div>
 
 <div id="python" class="tabcontent editor">
-    <button id="runPython" onclick="runPython()">Run Python code!</button>
+    <button id="runPython" onclick="runPython()">Run Python 2.7 code!</button>
 
     <div id="pythonErrors" class="error"></div>
 
@@ -161,7 +161,7 @@ drawBlocks(blocks)
         <p>Submit an issue and I will see what I can do!</p>
     </div>
 
-    <h2 class="faq">How do I write code in Java?</h2>
+    <h2 class="faq">How do I write my code in Java?</h2>
     <div>
         <p>
         Java does not yet work through the web browser, so you have to run the Java 
@@ -203,10 +203,68 @@ drawBlocks(blocks)
     <h2 class="faq">Can I make contributions to Knoxel?</h2>
     <div>
         <p>
-        Yes! The 
+        Sure! The 
         <a href="https://github.com/jspacco/knoxel">code is here</a>
         </p>
         <p>Hack away at it!</p>
+    </div>
+
+    <h2 class="faq">When will Java be supported in the Browser?</h2>
+    <div>
+        <p>
+            Browser support requires a Javascript library that can transpile the source
+            language into Javascript. <a href="https://skulpt.org/">Skulpt</a> does this for Python,
+            which is how we have Python support. I haven't found any libraries that are written in 
+            Javascript, and that can transpile Java to Javascript. I recently found a parser
+            that produces CST (which I guess is like an AST but more concrete and less abstract, hence
+            the "C" in CST), but I haven't had time to really dig into it. I think transpiling a subset
+            of Java that is enough to make this work is feasible, but not in the time I ha alotted 
+            for this project.
+        </p>
+    </div>
+
+    <h2 class="faq">Can we get support for my favorite language?</h2>
+    <div>
+        <p>
+            It's not that difficult to support other langauges the same way we currently support Java,
+            by writing simple functions that produce JSON files that can be uploaded. Submit an 
+            issue if this is important to you and I will see what I can do.
+        </p>
+        <p>
+            Adding browser support is trickier, because it relies on a transpiler written 
+            in JavaScript that can transpile the source language into Javascript. If one
+            exists for the language, it should be possible!
+        </p>
+    </div>
+
+    <h2 class="faq">Where is your Minecraft server mod?</h2>
+    <div>
+        <p>
+            We have a <a href="https://github.com/jspacco/knoxcraft">really messy Spongepowered mod from a few years ago</a> 
+            that does not really
+            work. The issue is that students trigger their code by running a command-line command,
+            but a lot of those commands tried to create thousands of blocks, which lagged.
+            Minecraft expects commmand-line commands to finish very quickly, and when they don't,
+            the server assumes something is wrong and shuts down. We tried to create basically a giant
+            work-stealing architecture to make this work, but it was kind of a mess.
+        </p>
+        <p>
+            Anyway I think what we actually need are bots with infinite inventories
+            that run around and lay out the blocks. We could not get that to work a few summers,
+            and I have not had time to work on it since.
+        </p>
+    </div>
+
+    <h2 class="faq">Why can't I mine or place blocks like in regular Minecraft?</h2>
+    <div>
+        <p>
+            Knoxel is specifically designed to help CS students practice 3D arrays. 
+            You have to write code to create things!
+        </p>
+        <p>
+            If you want to play Minecraft, go play Minecraft! It's a legitimately great game that has
+            brought enormous joy to the world.
+        </p>
     </div>
     
 </div>
