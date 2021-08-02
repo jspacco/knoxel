@@ -152,7 +152,7 @@ drawBlocks(blocks)
 </div>
 
 <div id="help" class="tabcontent">
-    <h2>I found a problem! Can I submit issues?</h2>
+    <h2 class="faq">I found a problem! Can I submit issues?</h2>
     <div>
         <p>
         Yes! The code for Knoxel is here:
@@ -161,7 +161,7 @@ drawBlocks(blocks)
         <p>Submit an issue and I will see what I can do!</p>
     </div>
 
-    <h2>How do I write code in Java?</h2>
+    <h2 class="faq">How do I write code in Java?</h2>
     <div>
         <p>
         Java does not yet work through the web browser, so you have to run the Java 
@@ -169,15 +169,18 @@ drawBlocks(blocks)
         directly to the Game tab.
         </p>
         <p>
-            Find the <a href="./java">code to use Knox in Java here</a>.
-        </p>
-        <p>
+            Check out the Java code here:
+            <ul>
+                <li><a href="./java/BlockType.java">BlockType.java</a> (an enum containing all of the BlockTypes)</li>
+                <li><a href="./java/BlockWriter.java">BlockWriter.java</a> (utility class with methods to create JSON and write files)</li>
+                <li><a href="./java/Knoxel.java">Knoxel.java</a> (the main driver)</li>
+            </ul>
             Download the code and run it with your favorite IDE. To keep things 
             accessible to novices, the code does not use packages.
         </p>
     </div>
 
-    <h2>How do coordinates in Knoxel work?</h2>
+    <h2 class="faq">How do coordinates in Knoxel work?</h2>
     <div>
         <p>
         Knoxel drawings are 3D volumes made up of 3D arrays of width, depth, and height. 
@@ -196,7 +199,8 @@ drawBlocks(blocks)
             <img class="center-fit" src="./images/help1.png"/>
         </div>
     </div>
-    <h2>Can I make contributions to Knoxel?</h2>
+    
+    <h2 class="faq">Can I make contributions to Knoxel?</h2>
     <div>
         <p>
         Yes! The 
