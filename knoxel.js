@@ -1,15 +1,17 @@
-const [allMaterials, materialLookup, textureTable] = createMaterials();
+const [allMaterials, materialLookup, reverseMaterialLookup, textureTable] = createMaterials();
 let [width, depth, height] = [null, null, null];
 let [game, waila] = makeGame();
 
 function createMaterials() {
     let allMaterials = [];
     let materialLookup = {};
+    let reverseMaterialLookup = {};
 
     let textures = require('./textures.json');
     for (const [name, filenames] of Object.entries(textures)) {
         allMaterials.push(filenames);
         materialLookup[name] = allMaterials.length;
+        reverseMaterialLookup[allMaterials.length] = name;
     }
     // so that null maps to AIR
     // AIR should always be at index 0 in textures.json, but in case it's not
@@ -77,12 +79,11 @@ function createMaterials() {
         textureTable.appendChild(row);
     }
 
-    return [allMaterials, materialLookup, textureTable];
+    return [allMaterials, materialLookup, reverseMaterialLookup, textureTable];
 }
 
 
 
-// TODO: finish this refactoring
 function makeGame() {
     let createGame = require('voxel-engine');
     // export for use in the HTML file
@@ -135,8 +136,10 @@ function makeGame() {
     hl.on('highlight', function (voxelPos) { highlightPos = voxelPos })
     hl.on('remove', function (voxelPos) { highlightPos = null })
 
+    //
     // hacking in my own version of Deathcap's voxel-voila
     // https://github.com/voxel/voxel-voila/blob/master/voila.js
+    //
     let node = document.createElement('span');
     // waila set in css/style.css
     node.className = 'waila';
@@ -177,20 +180,21 @@ function makeGame() {
             let z = target.voxel[2];
             
             // GODDAMMIT! blocks in the game are apparently indexed starting at 1 rather than 0
-            let blockIndex = game.getBlock(target.voxel) - 1;
-            let texture = allMaterials[blockIndex];
+            let blockIndex = game.getBlock(target.voxel);
+            let blockType = reverseMaterialLookup[blockIndex];
 
-            let msg = texture;
+            let msg = blockType.toLowerCase();
             let [w, d, h] = game2CodeCoords(x, y, z);
-            
+
             if (width != null && depth != null && height != null && 
                 w >= 0 && w < width &&
                 d >= 0 && d < depth &&
                 h >= 0 && h < height)
             {
+                // if we are in range of our drawing, clicking shows the coords in code-space
                 msg += `<br>blocks[${w}][${d}][${h}]`;
             }
-            console.log(`mine x,y,z = (${x}, ${y}, ${z}) blockIndex = ${blockIndex}, texture = ${texture}, waila width=${width}, depth=${depth}, height=${height}`);
+            console.log(`mine x,y,z = (${x}, ${y}, ${z}) blockIndex = ${blockIndex}, blockType = ${blockType}, waila width=${width}, depth=${depth}, height=${height}`);
             setWaila(msg);
             node.style.setProperty('visibility', 'visible', 'important');
         }
@@ -317,5 +321,5 @@ for (let material of Object.keys(materialLookup)) {
     module.exports[material.toLowerCase()] = material;
 }
 module.exports.waila = waila;
-module.exports.allMaterials = allMaterials;
-module.exports.materialLookup = materialLookup;
+//module.exports.allMaterials = allMaterials;
+//module.exports.materialLookup = materialLookup;
