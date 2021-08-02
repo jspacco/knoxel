@@ -26,6 +26,9 @@ browserify knoxel.js --s knoxel -o knoxel-bundle.js
 # resources to copy recursively
 tocopy="index.html knoxel-bundle.js textures css pykc images"
 
+#
+javares="java/BlockType.java java/BlockWriter.java java/Knoxel.java"
+
 # necessary because we want only these 2 files, 
 # but we also want the directory structure
 acepath=ace-builds/src-min-noconflict
@@ -36,3 +39,6 @@ cp -r $tocopy $dst
 
 echo $acecode
 rsync -R $acecode $dst
+
+echo $javares
+rsync -R $javares $dst
