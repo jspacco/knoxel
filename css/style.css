@@ -4,6 +4,24 @@
     margin-left: auto;
     margin-right: auto;
 }
+
+.container {
+    position: relative;
+}
+
+.container canvas, .overlay {
+    position: absolute;
+    text-align: center;
+    top: 0px;
+    width: 100%;
+}
+
+.waila {
+    background-image: linear-gradient(rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.7) 100%);
+    visibility: hidden;
+    color: white;
+    font-size: 18pt;
+}
   
 .center {
     font-size: 32px;

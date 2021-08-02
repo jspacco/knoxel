@@ -21,7 +21,7 @@
     
     <div id="loadDrawingErrors" class="error"></div>
     
-    <div id="gamediv" class="game">
+    <div id="gamediv" class="container">
     </div>
 </div>
 
@@ -347,13 +347,13 @@ function runPython() {
     // https://stackoverflow.com/questions/26793247/how-to-overlay-a-div-over-a-canvas-css/26793302
     document.getElementById("gamediv").appendChild(knoxel.waila);
 
-    // open proper tab
+    // open proper tab (i.e. url is knoxel#textures or knoxel#game)
     if (window.location.href.includes("#")) {
         let idx = window.location.href.indexOf("#");
         let tab = window.location.href.substr(idx+1);
         openTab(tab);
     }
-    
+
 
 </script>
 

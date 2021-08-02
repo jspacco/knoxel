@@ -1,4 +1,5 @@
 const [allMaterials, materialLookup, textureTable] = createMaterials();
+let [width, depth, height] = [null, null, null];
 let [game, waila] = makeGame();
 
 function createMaterials() {
@@ -13,7 +14,7 @@ function createMaterials() {
     // so that null maps to AIR
     // AIR should always be at index 0 in textures.json, but in case it's not
     // we will do a lookup
-    materialLookup[null] = materialLookup['AIR'];
+    //materialLookup[null] = materialLookup['AIR'];
 
     function td(parent, text) {
         let tmp = document.createElement("td");
@@ -65,8 +66,6 @@ function createMaterials() {
             td1.appendChild(img);
             row.appendChild(td1);
         }
-        
-        
 
         // Javascript
         td(row, `knoxel.${name.toLowerCase()}`);
@@ -77,7 +76,6 @@ function createMaterials() {
 
         textureTable.appendChild(row);
     }
-    
 
     return [allMaterials, materialLookup, textureTable];
 }
@@ -87,7 +85,6 @@ function createMaterials() {
 // TODO: finish this refactoring
 function makeGame() {
     let createGame = require('voxel-engine');
-
     // export for use in the HTML file
     let game = createGame({
         generate: function(x, y, z) {
@@ -96,10 +93,10 @@ function makeGame() {
         chunkDistance: 4,
         materials: allMaterials,
         materialFlatColor: false,
+        statsDisabled: true,
         texturePath: './textures/'
     });
 
-    
 
     // TODO: numbered axes with x, y, z
     // Set origin to RED_WOOL
@@ -114,49 +111,48 @@ function makeGame() {
         game.setBlock(new Array(-1, 0, -z), materialLookup['BLUE_WOOL']);
     }
 
+    //
+    // create player
+    //
     let createPlayer = require('voxel-player')(game);
     let player = createPlayer('./images/spacdog.png');
     player.possess();
     player.position.set(0,5,5);
 
+    //
     // I believe I can fly!
+    //
     let fly = require('voxel-fly');
     let makeFly = fly(game);
     makeFly(game.controls.target());
 
+    //
     // highlight blocks when you look at them
+    //
     let highlight = require('voxel-highlight')
     let highlightPos;
-    var hl = game.highlighter = highlight(game, { color: 0xffffff })
+    var hl = game.highlighter = highlight(game, { color: 0xffffff , wireframeLinewidth: 20})
     hl.on('highlight', function (voxelPos) { highlightPos = voxelPos })
     hl.on('remove', function (voxelPos) { highlightPos = null })
 
     // hacking in my own version of Deathcap's voxel-voila
     // https://github.com/voxel/voxel-voila/blob/master/voila.js
     let node = document.createElement('span');
-    node.setAttribute('id', 'waila');
-    node.setAttribute('style', `
-background-image: linear-gradient(rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.6) 100%);
-visibility: hidden;
-color: white;
-font-size: 18pt;
-`);
+    // waila set in css/style.css
+    node.className = 'waila';
 
-    node.textContent = '';
+    function setWaila(msg) {
+        node.innerHTML = msg;
+    }
 
     const container = document.createElement('div');
-    container.setAttribute('style', `
-position: absolute;
-top: 0px;
-width: 100%;
-text-align: center;
-`);
-
+    container.className = "overlay";
     container.appendChild(node);
-    //document.body.appendChild(container);
 
-    // Try to set up click handlers
-    // these should update the node we just created
+    // 
+    // click handlers for mine/use (left/right click)
+    // these should update the html span node we just created
+    // 
     let createReach = require('voxel-reach');
     let reach = createReach(game, {reachDistance: 8});
 
@@ -166,7 +162,10 @@ text-align: center;
             let x = target.voxel[0];
             let y = target.voxel[1];
             let z = target.voxel[2];
-            
+            console.log(`use x,y,z = (${x}, ${y}, ${z})`);
+            //console.log(allMaterials);
+            //console.log(materialLookup);
+            // do nothing on use; this is just here in case we want to add a handler for this
         }
     });
 
@@ -176,13 +175,24 @@ text-align: center;
             let x = target.voxel[0];
             let y = target.voxel[1];
             let z = target.voxel[2];
-            console.log("mine x,y,z = ("+x+","+y+","+z+")");
-            //console.log("use x,y,z = ("+x+","+y+","+z+")");
-            let blockIndex = game.getBlock(target.voxel);
+            
+            // GODDAMMIT! blocks in the game are apparently indexed starting at 1 rather than 0
+            let blockIndex = game.getBlock(target.voxel) - 1;
             let texture = allMaterials[blockIndex];
-            console.log(`blockIndex = ${blockIndex}, texture = ${texture}`);
-            node.textContent = texture;
-            node.style.visibility = '';
+
+            let msg = texture;
+            let [w, d, h] = game2CodeCoords(x, y, z);
+            
+            if (width != null && depth != null && height != null && 
+                w >= 0 && w < width &&
+                d >= 0 && d < depth &&
+                h >= 0 && h < height)
+            {
+                msg += `<br>blocks[${w}][${d}][${h}]`;
+            }
+            console.log(`mine x,y,z = (${x}, ${y}, ${z}) blockIndex = ${blockIndex}, texture = ${texture}, waila width=${width}, depth=${depth}, height=${height}`);
+            setWaila(msg);
+            node.style.setProperty('visibility', 'visible', 'important');
         }
     });
 
@@ -216,7 +226,6 @@ async function loadDrawing(evt) {
     // the function containing this is marked async
     let text = await readFileHelp();
 
-    console.log(text);
     try {
         updateDrawing(text);
     } catch (error) {
@@ -227,12 +236,10 @@ async function loadDrawing(evt) {
   
 function updateDrawing(result) {
     let obj = JSON.parse(result);
-    let depth = parseInt(obj.depth);
-    let width = parseInt(obj.width);
-    let height = parseInt(obj.height);
-    console.log("width = "+obj.width);
-    console.log("depth = "+obj.depth);
-    console.log("height = "+obj.height);
+    depth = parseInt(obj.depth);
+    width = parseInt(obj.width);
+    height = parseInt(obj.height);
+    //console.log(`upload drawing with width = ${obj.width}, depth=${depth}, height=${height}`);
     drawBlocks(obj.blocks);
 }
 
@@ -265,10 +272,20 @@ const blockify = function(grid) {
     }
 }
 
+function code2GameCoords(w, d, h) {
+    // map from x,z,y in 3D array coords to x,y+1,-z in game coords
+    // this is just x, y+1, -z
+    return [w, h+1, -d];
+}
+
+function game2CodeCoords(x, y, z) {
+    return [x, -z, y-1];
+}
+
 const drawBlocks = function(blocks) {
-    const width = blocks.length;
-    const depth = blocks[0].length;
-    const height = blocks[0][0].height;
+    width = blocks.length;
+    depth = blocks[0].length;
+    height = blocks[0][0].length;
     // x is width
     for (let x = 0; x < blocks.length; x++) {
         // z is depth
@@ -276,8 +293,12 @@ const drawBlocks = function(blocks) {
             // y is height
             for (let y = 0; y < blocks[x][z].length; y++){
                 let block = blocks[x][z][y];
-                console.log(`set block ${x}, ${z}, ${y}, coords (${x}, ${y+1}, ${-z}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
-                game.setBlock(new Array(x, y+1, -z), materialLookup[block]);
+                if (block == null) {
+                    // map null to AIR
+                    block = 0;
+                }
+                console.log(`set block ${x}, ${z}, ${y}, coords (${code2GameCoords(x, y, z)}) to ${materialLookup[blocks[x][z][y]]} ${allMaterials[materialLookup[block]] }`);
+                game.setBlock(code2GameCoords(x, y, z), materialLookup[block]);
             }
         }
     }
@@ -296,5 +317,5 @@ for (let material of Object.keys(materialLookup)) {
     module.exports[material.toLowerCase()] = material;
 }
 module.exports.waila = waila;
-//module.exports.allMaterials = allMaterials;
-//module.exports.materialLookup = materialLookup;
+module.exports.allMaterials = allMaterials;
+module.exports.materialLookup = materialLookup;
