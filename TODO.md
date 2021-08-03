@@ -30,7 +30,9 @@
     * parsing the text of the message, since the `ReferenceError` and `SyntaxError` types returned by eval() are not consistent between browsers
 * Python 3 support in Skulpt
 * Ruby support using (Opal)[https://github.com/opal/opal], probably using (Opal-CDN)[https://github.com/opal/opal-cdn]
-* What would Clojure support look like using ClojureScript?
+* Support 2D arrays, where we throw out the Y coordinate and can look at it from above
+* Increase speed of player
+* ticks/deltas for things that change appearance, like still water and still lava
 
 ## Stretch Goals
 * Java to Javascript transpiler for this project
@@ -38,4 +40,13 @@
         * arrays
         * Map
         * ArrayList / LinkedList (anything from the List interface)
-    * 
+* Blockly support
+    * Probably a block to create a 3D volume by width, depth, height?
+    * Probably a block to set a texture to a w,d,h location within our volume?
+    * Good examples of how to handle the nested loops with counters
+    * Textures as a block with drop-downs or something like that?
+        * update blocks/textures if we add more block types
+* What would Clojure support look like using ClojureScript?
+    * probably mapping functions onto a 3D volume somehow I guess?
+* Combine textures with flat colors using voxel-textures
+    * Basically, if it starts with a # then treat it as a color, else find the texture. Probably not difficult to do, but breaks support of npm
