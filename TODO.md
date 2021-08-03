@@ -34,6 +34,8 @@
 * Increase speed of player
 * ticks/deltas for things that change appearance, like still water and still lava
 * test OOB errors from Python and JS
+* Sample programs in Python/JS for stairs, skyscraper, pyramid
+* Single editor, multiple languages likely needed when we add a 3rd language
 
 ## Stretch Goals
 * Java to Javascript transpiler for this project
