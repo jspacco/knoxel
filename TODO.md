@@ -33,6 +33,7 @@
 * Support 2D arrays, where we throw out the Y coordinate and can look at it from above
 * Increase speed of player
 * ticks/deltas for things that change appearance, like still water and still lava
+* test OOB errors from Python and JS
 
 ## Stretch Goals
 * Java to Javascript transpiler for this project
@@ -49,4 +50,6 @@
 * What would Clojure support look like using ClojureScript?
     * probably mapping functions onto a 3D volume somehow I guess?
 * Combine textures with flat colors using voxel-textures
-    * Basically, if it starts with a # then treat it as a color, else find the texture. Probably not difficult to do, but breaks support of npm
+    * Basically, if it starts with a # then treat it as a color, else find the texture.
+    * breaks npm support, requires `npm link` to get working
+    * put on separate branch at first?
