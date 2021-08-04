@@ -375,7 +375,7 @@ const drawBlocks = function(blocks, axesOverride=false) {
             // y is height
             for (let y = 0; y < blocks[x][z].length; y++){
                 let block = blocks[x][z][y];
-                if (block == null) {
+                if (block == null || block == "AIR") {
                     // map null to AIR
                     block = 0;
                 }
