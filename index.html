@@ -21,6 +21,7 @@
     <li><a href="#javascript" class="tablinks active" id="javascriptTab" onclick="openTab('javascript')">Javascript</a></li>
     <li><a href="#python" class="tablinks" id="pythonTab" onclick="openTab('python')">Python</a></li>
     <li><a href="#ruby" class="tablinks" id="rubyTab" onclick="openTab('ruby')">Ruby</a></li>
+    <li><a href="#java" class="tablinks" id="javaTab" onclick="openTab('java')">Java</a></li>
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
     <li><a href="#textures" class="tablinks" id="texturesTab" onclick="openTab('textures')">Textures</a></li>
     <li><a href="#about" class="tablinks" id="aboutTab" onclick="openTab('about')">About</a></li>
@@ -121,8 +122,38 @@ end
 
 draw_blocks(blocks)
     </div>
-
 </div>
+
+<div id="java" class="tabcontent">
+    <h2>Two ways to use Java!</h2>
+
+    <h3>How to use Java with BlueJ</h3>
+    <ol>
+        <li>Download and unzip/extract <a href="./java/knoxel.zip">this zipfile.</a>.</li>
+        <li>Open the folder with BlueJ</li>
+        <li>Look at the example programs in <pre>Examples.java</pre></li>
+        <li>Write your code in the file <pre>Knoxel.java</pre>. Be sure to call:
+            <p>
+            <pre>BlockWriter.writeDrawingToFile(grid, "mydrawing.json");</pre>
+            </p>
+            To produce a JSON Drawing file called "mydrawing.json" (you can pick whatever name
+            you want, you don't need to name it "mydrawing").
+        </li>
+        <li>Upload the JSON file directly to the "Game" tab using the button labeled "Upload Drawing from JSON"</li>
+    </ol>
+
+    <h3>How to use Java with your favorite IDE other than BlueJ</h3>
+    <ol>
+        <li>Download and unzip/extract <a href="./java/knoxel.zip">the BlueJ zipfile.</a>.</li>
+        <li>
+            Copy the .java files into a new project in your IDE. We use the default package to be more novice-friendly.
+        </li>
+        <li>
+            Pick up with step #3 from the instructions above.
+        </li>
+    </ol>
+</div>
+
 
 <div id="about" class="tabcontent">
     <div>

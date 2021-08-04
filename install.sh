@@ -27,7 +27,7 @@ browserify knoxel.js --s knoxel -o knoxel-bundle.js
 tocopy="index.html knoxel-bundle.js textures css pykc images ruby"
 
 # java resources
-javares="java/BlockType.java java/BlockWriter.java java/Knoxel.java"
+javares="java/BlockType.java java/BlockWriter.java java/Knoxel.java java/knoxel.zip"
 
 # necessary because we want only these 2 files, 
 # but we also want the directory structure
