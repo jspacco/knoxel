@@ -388,6 +388,21 @@ const drawBlocks = function(blocks, axesOverride=false) {
     if (opts.axesOn || axesOverride) makeAxes();
 }
 
+function readSync(filename) {
+    let text = null;
+    let length = -1;
+    let client = new XMLHttpRequest();
+    // 3rd paramter false makes this a synchronous request
+    // async requests don't always finish before we need this information
+    client.open('GET', filename, false);
+    client.onreadystatechange = function() {
+      text = client.responseText+"\n\n";
+      length = text.split(/\r\n|\r|\n/).length;
+    }
+    client.send();
+    return [text, length];
+}
+
 
 // finally, export the game object so browserify can make it available
 module.exports.game = game;
@@ -402,5 +417,6 @@ for (let material of Object.keys(materialLookup)) {
 }
 module.exports.waila = waila;
 module.exports.opts = opts;
+module.exports.readSync = readSync;
 //module.exports.allMaterials = allMaterials;
 //module.exports.materialLookup = materialLookup;

@@ -464,20 +464,12 @@ function runPython() {
     //
     // load the pykc base code
     // 
-    var pykcLibraryCode = null;
-    var pykcCodeLen = -1;
-    let client = new XMLHttpRequest();
-    // 3rd paramter false makes this a synchronous request
-    // async requests don't always finish before we need this information
-    client.open('GET', './pykc/pykcbase.py', false);
-    client.onreadystatechange = function() {
-      pykcLibraryCode = client.responseText+"\n\n";
-      pykcCodeLen = pykcLibraryCode.split(/\r\n|\r|\n/).length;
-    }
-    client.send();
-    
+    var [pykcLibraryCode, pykcCodeLen] = knoxel.readSync('./pykc/pykcbase.py');
+
+    //
     // shimming Skulpt: Adding a new "builtin" function that hooks directly
     // into the drawBlocks() function available in knoxel.js
+    //
     Sk.builtins.drawBlocks = function(blocks) {
         // convert from Skupt to pure JS, then pass off to JS function in our bundle
         let jsblocks = [];
@@ -505,17 +497,7 @@ function runPython() {
     //
     // load rubybase.rb code
     //
-    var rubyLibraryCode = null;
-    var rubyCodeLen = -1;
-    client = new XMLHttpRequest();
-    // 3rd paramter false makes this a synchronous request
-    // async requests don't always finish before we need this information
-    client.open('GET', './ruby/rubybase.rb', false);
-    client.onreadystatechange = function() {
-      rubyLibraryCode = client.responseText+"\n\n";
-      rubyCodeLen = rubyLibraryCode.split(/\r\n|\r|\n/).length;
-    }
-    client.send();
+    var [rubyLibraryCode, rubyCodeLen] = knoxel.readSync('./ruby/rubybase.rb');
 
     // Ace range function
     var Range = ace.require('ace/range').Range;
