@@ -13,6 +13,8 @@
         * https://www.pixilart.com/draw/16x16-b3bc604165f0096
 * ACE
     * highlighting line numbers requires clicking editor window to trigger the update
+* stdout panel for any prints coming from student code
+    * best way to intercept?
 
 
 ## Future Work
@@ -30,6 +32,8 @@
     * parsing the text of the message, since the `ReferenceError` and `SyntaxError` types returned by eval() are not consistent between browsers
 * Python 3 support in Skulpt
 * Ruby support using (Opal)[https://github.com/opal/opal], probably using (Opal-CDN)[https://github.com/opal/opal-cdn]
+    * working on Ruby branch, key call is `Opal.eval` and `Opal.def` for defining functions
+    * figure out Opal with (this link)[https://opalrb.com/try/?example=Overview]
 * Support 2D arrays, where we throw out the Y coordinate and can look at it from above
 * Increase speed of player
 * ticks/deltas for things that change appearance, like still water and still lava
