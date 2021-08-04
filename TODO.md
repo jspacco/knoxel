@@ -31,16 +31,16 @@
 * Javascript line number errors
     * parsing the text of the message, since the `ReferenceError` and `SyntaxError` types returned by eval() are not consistent between browsers
 * Python 3 support in Skulpt
-* Ruby support using (Opal)[https://github.com/opal/opal], probably using (Opal-CDN)[https://github.com/opal/opal-cdn]
-    * working on Ruby branch, key call is `Opal.eval` and `Opal.def` for defining functions
-    * figure out Opal with (this link)[https://opalrb.com/try/?example=Overview]
-    * Can probably shim using Native: x = Native(`knoxel.drawBlocks([[["DIRT"], ["STONE"]]])`)
+* Ruby support is on branch `ruby`, not yet merged into main branch
+    * create a ruby enum with the blocktypes
+    * better error handling for Ruby
+    * Opal does not handle nested `for in` loops, though nested `each do` loops work
 * Support 2D arrays, where we throw out the Y coordinate and can look at it from above
 * Increase speed of player
 * ticks/deltas for things that change appearance, like still water and still lava
 * test OOB errors from Python and JS
 * Sample programs in Python/JS for stairs, skyscraper, pyramid
-* Single editor, multiple languages likely needed when we add a 3rd language
+* Single editor, multiple languages
 
 ## Stretch Goals
 * Java to Javascript transpiler for this project
