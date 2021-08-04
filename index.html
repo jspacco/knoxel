@@ -368,7 +368,8 @@ function runRuby() {
     // prepend with the pykcbase code, which contains all the block types
     let fullCode = rubyLibraryCode + studentCode;
     try {
-        Opal.eval(fullCode);
+        let result = Opal.eval(fullCode);
+        // TODO: how do we know if eval failed? what does the return value here mean?
         openTab('game');
     } catch (error) {
         setError('rubyErrors', error.toString());
