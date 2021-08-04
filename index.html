@@ -20,6 +20,7 @@
 <ul class="tab">
     <li><a href="#javascript" class="tablinks active" id="javascriptTab" onclick="openTab('javascript')">Javascript</a></li>
     <li><a href="#python" class="tablinks" id="pythonTab" onclick="openTab('python')">Python</a></li>
+    <li><a href="#ruby" class="tablinks" id="rubyTab" onclick="openTab('ruby')">Ruby</a></li>
     <li><a href="#game" class="tablinks" id="gameTab" onclick="openTab('game')">Game</a></li>
     <li><a href="#textures" class="tablinks" id="texturesTab" onclick="openTab('textures')">Textures</a></li>
     <li><a href="#about" class="tablinks" id="aboutTab" onclick="openTab('about')">About</a></li>
@@ -91,6 +92,36 @@ for i in xrange(width):
 
 drawBlocks(blocks)
     </div>
+</div>
+
+<div id="ruby" class="tabcontent editor">
+    <button id="runRuby" onclick="runRuby()">Run Ruby code!</button>
+    
+    <div id="rubyErrors" class="error"></div>
+    
+    <div id="rubyEditor" class="editor">
+width = 2
+depth = 3
+height = 4
+blocks = make_grid(width, depth, height)
+
+#
+# Note that Opal cannot handle nested for loops, only nested each loops
+# https://github.com/opal/opal/issues/2033
+# It looks like this was fixed elsewhere but not here
+# may need to file a bug report
+#
+(0...width).each do |i|
+    (0...depth).each do |j|
+        (0...height).each do |k|
+            blocks[i][j][k] = blocktype.grass
+        end
+    end
+end
+
+draw_blocks(blocks)
+    </div>
+
 </div>
 
 <div id="about" class="tabcontent">
@@ -329,6 +360,21 @@ function runJavascript() {
     }
 }
 
+function runRuby() {
+    // clear error div
+    clearError('rubyErrors');
+    // get student code from editor, then paste our base code in front of it
+    let studentCode = rubyEditor.getValue();
+    // prepend with the pykcbase code, which contains all the block types
+    let fullCode = rubyLibraryCode + studentCode;
+    try {
+        Opal.eval(fullCode);
+        openTab('game');
+    } catch (error) {
+        setError('rubyErrors', error.toString());
+    }
+}
+
 function runPython() {
     // remove markers in ACE
     for (let mark of pythonErrorMarkers) {
@@ -401,12 +447,23 @@ function runPython() {
 <!-- load code for the embedded ACE editor -->
 <script src="./ace-builds/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
 <script src="./ace-builds/src-min-noconflict/theme-twilight.js" type="text/javascript" charset="utf-8"></script>
+<!-- our bundled Knoxel code -->
 <script src="./knoxel-bundle.js"></script>
+<!-- Python 2.7 support with Skulpt -->
 <script src="./pykc/skulpt.min.js"></script>
 <script src="./pykc/skulpt-stdlib.js"></script>
+<!-- Ruby support with Opal -->
+<script src="http://cdn.opalrb.com/opal/current/opal.min.js"></script>
+<script src="http://cdn.opalrb.com/opal/current/native.min.js"></script>
+<script src="http://cdn.opalrb.com/opal/current/opal-parser.min.js"></script>
+<script type="text/javascript">Opal.load('opal-parser')</script>
+<script type="text/javascript">Opal.load('native')</script>
+
 
 <script>
+    //
     // load the pykc base code
+    // 
     var pykcLibraryCode = null;
     var pykcCodeLen = -1;
     let client = new XMLHttpRequest();
@@ -445,6 +502,21 @@ function runPython() {
         knoxel.drawBlocks(jsblocks);
     }
 
+    //
+    // load rubybase.rb code
+    //
+    var rubyLibraryCode = null;
+    var rubyCodeLen = -1;
+    client = new XMLHttpRequest();
+    // 3rd paramter false makes this a synchronous request
+    // async requests don't always finish before we need this information
+    client.open('GET', './ruby/rubybase.rb', false);
+    client.onreadystatechange = function() {
+      rubyLibraryCode = client.responseText+"\n\n";
+      rubyCodeLen = rubyLibraryCode.split(/\r\n|\r|\n/).length;
+    }
+    client.send();
+
     // Ace range function
     var Range = ace.require('ace/range').Range;
 
@@ -463,6 +535,14 @@ function runPython() {
     pythonEditor.setAutoScrollEditorIntoView(true);
     pythonEditor.setFontSize(20);
     var pythonErrorMarkers = [];
+
+    // setup the Ruby ACE editor
+    var rubyEditor = ace.edit("rubyEditor");
+    rubyEditor.setTheme("ace/theme/twilight");
+    rubyEditor.getSession().setMode("ace/mode/ruby");
+    rubyEditor.setAutoScrollEditorIntoView(true);
+    rubyEditor.setFontSize(20);
+    var rubyErrorMarkers = [];
 
     // attach the game object to the game div
     knoxel.game.appendTo(document.getElementById("gamediv"));

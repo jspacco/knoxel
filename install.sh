@@ -24,15 +24,15 @@ python3 makejava.py > $javablocktype
 browserify knoxel.js --s knoxel -o knoxel-bundle.js
 
 # resources to copy recursively
-tocopy="index.html knoxel-bundle.js textures css pykc images"
+tocopy="index.html knoxel-bundle.js textures css pykc images ruby"
 
-#
+# java resources
 javares="java/BlockType.java java/BlockWriter.java java/Knoxel.java"
 
 # necessary because we want only these 2 files, 
 # but we also want the directory structure
 acepath=ace-builds/src-min-noconflict
-acecode="$acepath/ace.js $acepath/theme-twilight.js $acepath/mode-javascript.js $acepath/mode-python.js $acepath/mode-java.js $acepath/worker-javascript.js"
+acecode="$acepath/ace.js $acepath/theme-twilight.js $acepath/mode-javascript.js $acepath/mode-python.js $acepath/mode-java.js $acepath/mode-ruby.js $acepath/worker-javascript.js"
 
 echo $tocopy
 cp -r $tocopy $dst

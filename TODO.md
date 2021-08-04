@@ -34,6 +34,7 @@
 * Ruby support using (Opal)[https://github.com/opal/opal], probably using (Opal-CDN)[https://github.com/opal/opal-cdn]
     * working on Ruby branch, key call is `Opal.eval` and `Opal.def` for defining functions
     * figure out Opal with (this link)[https://opalrb.com/try/?example=Overview]
+    * Can probably shim using Native: x = Native(`knoxel.drawBlocks([[["DIRT"], ["STONE"]]])`)
 * Support 2D arrays, where we throw out the Y coordinate and can look at it from above
 * Increase speed of player
 * ticks/deltas for things that change appearance, like still water and still lava
