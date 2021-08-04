@@ -32,7 +32,7 @@
     * parsing the text of the message, since the `ReferenceError` and `SyntaxError` types returned by eval() are not consistent between browsers
 * Python 3 support in Skulpt
 * Ruby support is on branch `ruby`, not yet merged into main branch
-    * create a ruby enum with the blocktypes
+    * create a ruby (enum for the blocktypes)[https://stackoverflow.com/questions/75759/how-to-implement-enums-in-ruby]
     * better error handling for Ruby
     * Opal does not handle nested `for in` loops, though nested `each do` loops work
 * Support 2D arrays, where we throw out the Y coordinate and can look at it from above
