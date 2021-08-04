@@ -9,12 +9,14 @@
     * explain that we can only render 256 blocks away from the player due to how chunk loading works
 * Textures!
     * better style for the textures listing
+    * add ruby textures once we figure out what ruby will look like
     * Improve textures of various colors that we can just kind of drop in
         * https://www.pixilart.com/draw/16x16-b3bc604165f0096
 * ACE
     * highlighting line numbers requires clicking editor window to trigger the update
 * stdout panel for any prints coming from student code
-    * best way to intercept?
+    * best way to intercept only some prints?
+* Axes should be a "toggle" where it will show/hide axes. Drawing axes should be a separate function that is not called by the drawBlocks() function. Need "unmakeAxes" method that replaces the axes with air.
 
 
 ## Future Work
