@@ -7,6 +7,9 @@ table, th, td {
     font-size: 16pt;
     font-family: sans-serif;
 }
+th, td {
+    padding: 10px;
+}
 .bold {
     font-weight: bold;
 }
