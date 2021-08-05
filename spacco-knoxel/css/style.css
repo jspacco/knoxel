@@ -1,0 +1,30 @@
+body {
+    font-size: 16pt;
+    font-family: sans-serif;
+}
+table, th, td {
+    border: 1px solid black;
+    font-size: 16pt;
+    font-family: sans-serif;
+}
+.bold {
+    font-weight: bold;
+}
+
+.sidebyside {
+    width: 100%;
+    display: table;
+}
+
+.divrow {
+    display: table-row;
+}
+
+.divcol {
+    display: table-cell;
+    border: 3px solid black;
+}
+.img {
+    /* object-fit: contain; */
+    width: 100%;
+} 

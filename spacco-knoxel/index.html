@@ -1,38 +1,7 @@
 <html>
 <head>
 <title>Knoxel: Coding voxels in your browser!</title>
-<style>
-body {
-    font-size: 16pt;
-    font-family: sans-serif;
-}
-table, th, td {
-    border: 1px solid black;
-    font-size: 16pt;
-    font-family: sans-serif;
-}
-.bold {
-    font-weight: bold;
-}
-
-.sidebyside {
-    width: 100%;
-    display: table;
-}
-
-.divrow {
-    display: table-row;
-}
-
-.divcol {
-    display: table-cell;
-    border: 3px solid black;
-}
-.img {
-    /* object-fit: contain; */
-    width: 100%;
-} 
-</style>
+<link rel="stylesheet" type="text/css" href="./css/style.css">
 
 </head>
 <body>
@@ -91,13 +60,12 @@ table, th, td {
             <td>Students write code in Javascript, Python, Ruby, or Java to 
                 manipulate 3D arrays of blocks. We provide enums or enum-like 
                 constants for each language to make this process simple.
-                Students can then render their creations in the browser, and
-                view them.
+                Students can then render and view their creations in their web browser!
             </td>
         </tr>
         <tr>
             <td class="bold">Topics</td>
-            <td>3D arrays, nested for loops.</td>
+            <td>3D arrays, nested for loops, 3D volumes.</td>
         </tr>
         <tr>
             <td class="bold">Audience</td>
@@ -105,15 +73,24 @@ table, th, td {
         </tr>
         <tr>
             <td class="bold">Difficulty</td>
-            <td>I usually give them some sample programs and a week to .</td>
+            <td>
+                <p>
+                I usually give them some sample programs and a week to craft their drawings.
+                </p>
+                <p>
+                The instructions are usually something like,
+                "Make a house! A house should have a roof and a door and a hollow space inside."
+                They can interpret what "house" means in a variety of different, interesting ways.
+                </p>
+            </td>
         </tr>
         <tr>
             <td class="bold">Strengths</td>
             <td>
                 <ul>
-                    <li>Minecraft is still incredibly popular</li>
+                    <li>Minecraft remains incredibly popular</li>
                     <li>Requires no software installation by students or the instructor!</li>
-                    <li>Great for open-ended, creative assignments.</li>
+                    <li>Great for open-ended, creative assignments where "correct" answers look very different</li>
                     <li>Student creations make for good demos or CS0/CS1 hall-of-fame displays</li>
                 </ul>
             </td>
@@ -130,16 +107,20 @@ table, th, td {
                         Students cannot save code written into the browser, so they might lose their work!
                     </li>
                     <li>
+                        Some students do not like open-ended assignments lacking a single right answer.
+                    </li>
+                    <li>
                         We have not gotten Java support working in the browser, so they need to run it 
                         offline and upload a file it produces. This is how I use the system in CS1, and
                         it's not a problem.
                     </li>
                     <li>
-                        Lava, water, and other things that "flow" in Minecraft do not actually flow in Knoxel</li>
+                        Lava, water, and other things that "flow" in regular Minecraft do not actually flow in Knoxel
+                    </li>
                     <li>
                         You can't actually do any of the things you can do in Minecraft, like mine
-                        or place blocks, except by writing code. Faculty tend to like this feature, students
-                        may not.
+                        or place blocks, except by writing code. Faculty tend to like this feature, 
+                        students may not.
                     </li>
                 </ul>
             </td>
