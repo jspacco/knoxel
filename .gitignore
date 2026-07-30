@@ -31,3 +31,5 @@ Thumbs.db
 # Cloudflare
 .wrangler/
 worker/node_modules/
+
+Classic-32x-Java/
