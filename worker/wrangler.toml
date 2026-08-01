@@ -1,0 +1,7 @@
+name = "knoxel-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "KNOXEL"
+id = "68c3a19eb9ee45bebbc10514cd7c6cbb"
