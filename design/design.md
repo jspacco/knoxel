@@ -212,17 +212,22 @@ knoxel/
 |---|---|---|
 | id | string (PB auto) | |
 | name | string | e.g. "CS 102 Spring 2026 Week 4" |
+| auth_mode | string | `'open'` or `'accounts'` — set at creation, changeable from faculty panel |
 | created_at | datetime | PB auto |
 
 One world per course instance. No reset unless something goes wrong. World accumulates all student work over the assignment week.
 
+`auth_mode` controls whether students need a password. `'open'` is the default — students just type their email. `'accounts'` requires faculty to upload a student list and distribute generated passwords before the assignment starts.
+
 ### `players`
+
+In **open mode**, this is a plain PocketBase collection — no auth, unauthenticated creates allowed. In **accounts mode**, this uses PocketBase's built-in auth collection with email/password.
+
 | field | type | notes |
 |---|---|---|
 | id | string (PB auto) | |
 | display_name | string | student's chosen name, shown on turtle nameplate in world |
-| email | string, required | prompted as Knox email on first visit — not verified but collected for faculty identification |
-| upload_token | string | generated on player creation, used for VS Code uploads |
+| email | string, required | Knox email — identity key for research and grading |
 | is_faculty | bool | true for faculty test accounts; grants access to /faculty panel |
 | world_id | relation → worlds | |
 | turtle_x | int | current turtle position |
@@ -231,9 +236,11 @@ One world per course instance. No reset unless something goes wrong. World accum
 | turtle_facing | string | north / south / east / west |
 | last_seen | datetime | updated on heartbeat |
 
-`email` is the authoritative identity field for grading and research — it's what faculty use to identify submissions in the panel. `display_name` is cosmetic (turtle nameplate). Students could enter a fake email; that's a them problem. No verification is performed.
+`email` is the authoritative identity field. `display_name` is cosmetic (turtle nameplate).
 
-Faculty can create a player record with `is_faculty = true` to access both the student UI and the `/faculty` panel simultaneously.
+In open mode, email is self-reported and not verified. Students could upload under someone else's email — acceptable for a low-stakes classroom assignment where nothing destructive can happen (programs accumulate, blocks get placed, nothing can be deleted).
+
+In accounts mode, PocketBase's built-in auth enforces email/password. Faculty generates accounts via the faculty panel before the assignment. Students cannot upload or log in without valid credentials.
 
 ### `programs`
 | field | type | notes |
@@ -267,49 +274,61 @@ Unique constraint on `(world_id, x, y, z)`. Last write wins via upsert. Blocks a
 
 ## 7. Authentication and Identity
 
-Auth is tiered. The default tier requires zero setup from faculty. Stronger tiers are opt-in upgrades, never a requirement to get the tool running.
+Two auth modes, selected when creating a world via the CLI and changeable from the faculty panel. No Google OAuth, no custom token system, no external dependencies.
 
-**Why this matters:** a faculty member downloading the local-binary distribution must be able to double-click it and have students connected within minutes. Requiring Google Cloud Console setup (OAuth client ID, redirect URIs, consent screen) before a single student can log in defeats the entire "simple enough that colleagues will actually use it" goal. Google SSO was the original plan but it's a hard dependency only Jaime would bother configuring — everyone else just won't use the tool.
-
-### Tier 0 — No auth (default)
+### Open mode (default)
 
 Student opens the browser and is prompted for two fields:
 - **Display name** — shown on their turtle nameplate in the world, can be anything
-- **Knox email** — prompted explicitly as "your school email address (@knox.edu)"; used by faculty to identify submissions; not verified
+- **Knox email** — prompted as "your school email address"; not verified; used by faculty to identify submissions
 
-No password, no OAuth, no external service. A `players` record is created, a session ID stored in the browser. Zero setup cost for faculty.
+No password. A `players` record is created with these two fields. Session stored in browser localStorage. Zero setup cost for faculty — students can connect immediately.
 
-Students could enter a fake email. That's acceptable — the token is the upload auth mechanism, not the email. But if a student submits with a fake email and can't be identified in the faculty panel, that's a them problem. The prompt language should make the purpose clear: "Enter your Knox email so your instructor can identify your submissions." 
-
-### Tier 1 — PocketBase basic auth (recommended upgrade)
-
-PocketBase has built-in email/password auth with zero external dependencies — no Google Cloud Console, no OAuth app registration. Faculty create student accounts (or let students self-register) directly through PocketBase's admin UI or a simple sign-up form. Takes about the same effort as setting up any other small web app login. This is the auth tier worth defaulting to in `docs/faculty-setup.md` as "if you want real accounts."
-
-### Tier 2 — Google OAuth (optional, for whoever wants it)
-
-PocketBase supports Google OAuth as one of several configurable providers. If Knox IT wants `@knox.edu` accounts wired in, or a faculty member is comfortable with Google Cloud Console, this is available — but it's documented as an optional enhancement in `docs/faculty-setup.md`, not a setup requirement. The schema and upload token flow work identically regardless of which auth tier is active; OAuth just changes how `players.email` / `players.display_name` gets populated.
-
-### VS Code upload token (same across all tiers)
-
-Students write Java in VS Code and call `turtle.upload(url)`. The upload needs to be tied to the student's identity without requiring them to open a browser mid-coding-session. This flow is identical regardless of auth tier — the token is just opaque, generated server-side once a player record exists (whether that record came from a typed display name, basic auth, or OAuth).
-
-**Flow:**
-1. Student opens the browser visualizer and gets identified somehow (Tier 0/1/2, whichever the faculty member configured)
-2. Browser displays a personal upload token tied to their player record
-3. Student copies the token into their Java code once at the start of the assignment
-4. `turtle.upload()` sends the token as a header; server resolves it to a player record
+For uploading from Java, students configure their email once:
 
 ```java
 KnoxCraft.setServer("http://knoxel.knox.edu");
-KnoxCraft.setToken("abc123xyz");  // copied from browser, set once
+KnoxCraft.setEmail("jdoe@knox.edu");
 turtle.upload();
 ```
 
-The token is scoped to a world and expires after the assignment period. Faculty generate/reset tokens when they create a world.
+The Java library POSTs the program JSON plus the email to PocketBase. PocketBase stores it keyed by email. No password, no token.
 
-### Solo mode (Tier 1 deployment, client-only)
+Students could upload under someone else's email. That's acceptable — nothing destructive can happen (programs accumulate, blocks get placed, nothing can be deleted). If a student submits with a fake email and can't be identified, that's a them problem. The prompt language makes the purpose clear: "Enter your Knox email so your instructor can identify your submissions."
 
-No auth, no server at all. Student loads JSON from file or paste. Nothing is sent anywhere. Identity is irrelevant. Not to be confused with the auth tiers above — this is the no-server deployment tier described in section 3.
+The `players` PocketBase collection is set to allow unauthenticated creates and reads. Anyone can POST a program — turtle programs are not sensitive data.
+
+### Accounts mode (optional, for more accountability)
+
+Faculty uploads a list of student emails before the assignment. The faculty panel generates passwords and creates PocketBase auth accounts for each student. Faculty downloads a CSV of email+password pairs and distributes to students (via Moodle, email, etc.).
+
+**Faculty panel flow:**
+1. Upload a plain text file or CSV of student emails
+2. Faculty panel generates a random word-pair password per student (e.g. `maple-river-22`)
+3. Faculty panel creates PocketBase auth accounts for each student
+4. Faculty panel returns a downloadable CSV: `email, password`
+5. Faculty distributes to students before the assignment
+
+**Student experience:**
+- Browser shows email + password login form instead of open-mode email-only form
+- Java code includes email and password:
+
+```java
+KnoxCraft.setServer("http://knoxel.knox.edu");
+KnoxCraft.setEmail("jdoe@knox.edu");
+KnoxCraft.setPassword("maple-river-22");
+turtle.upload();
+```
+
+Uses PocketBase's built-in auth collection — no custom auth code needed. No external services, no OAuth.
+
+**Switching modes:** faculty can toggle `auth_mode` from the faculty panel. Switching from open to accounts mid-assignment is disruptive (students already connected without passwords). Switching from accounts to open is a useful escape hatch if account setup causes friction.
+
+**No expiry.** Accounts last for the duration of the world. A one-week assignment doesn't need token rotation or session expiry.
+
+### Static tier (GitHub Pages)
+
+No auth, no server at all. Student runs Java, program POSTs to Cloudflare Worker, browser opens automatically. Identity is irrelevant. This is the no-server deployment tier described in section 3, completely separate from the auth modes above.
 
 ---
 
@@ -355,23 +374,31 @@ No existing worlds found.
 World name [CS102 Week 4]: _
 (enter = use the suggested default, or type a name)
 
+Authentication mode:
+  [1] Open — students identify by email, no password (default)
+  [2] Accounts — upload student list, generate passwords
+
+Select mode [1]: _
+
+World created. Students connect at: http://192.168.1.42:8090
+
 # One world exists:
 Knoxel
 ──────────────────────────
-  [1] CS102 Week 4   (created 2026-09-08, 23 players, 847 blocks)
+  [1] CS102 Week 4   (created 2026-09-08, 23 players, 847 blocks, open mode)
 
 Press enter to use CS102 Week 4, or type 'new' to create one: _
 
 # Multiple worlds exist:
 Knoxel
 ──────────────────────────
-  [1] CS102 Week 4   (created 2026-09-08, 23 players, 847 blocks)  ← default
-  [2] CS102 Week 7   (created 2026-10-13, 19 players, 1203 blocks)
+  [1] CS102 Week 4   (created 2026-09-08, 23 players, 847 blocks, open mode)  ← default
+  [2] CS102 Week 7   (created 2026-10-13, 19 players, 1203 blocks, accounts mode)
 
 Select world [1], or type 'new' to create one: _
 ```
 
-Enter always selects the default shown in brackets. `new` prompts for a world name and creates a new record. World order is creation order, oldest first. Default is always [1] (oldest world) — this is intentional, since faculty typically return to the same world across sessions.
+Enter always selects the default shown in brackets. `new` prompts for world name and auth mode. World order is creation order, oldest first. Default is always [1]. Auth mode is shown next to each world so faculty know what they're selecting.
 
 ---
 
@@ -381,7 +408,36 @@ Separate URL: `/faculty`. Protected by PocketBase admin session — redirects to
 
 ### Faculty as student
 
-Faculty need to test the full student experience — upload token flow, turtle controls, program execution — without losing their admin session. The faculty panel includes a "Join as Student" button that opens the student UI (`/`) in the same browser with a test player account flagged `is_faculty = true`. Faculty can switch back to `/faculty` at any time without logging out. This is how faculty verify the tool works before assigning it.
+Faculty need to test the full student experience — turtle controls, program upload, program execution — without losing their admin session. The faculty panel includes a "Join as Student" button that opens the student UI (`/`) in the same browser with a test player account flagged `is_faculty = true`. Faculty can switch back to `/faculty` at any time without logging out. This is how faculty verify the tool works before assigning it.
+
+### Account management (accounts mode only)
+
+When `auth_mode = 'accounts'`, the faculty panel shows an account management section:
+
+**Upload student list:**
+- Faculty pastes or uploads a plain text file, one email per line
+- Faculty panel generates a random word-pair password per student (e.g. `maple-river-22`)
+- Faculty panel calls PocketBase to create auth accounts for each student
+- Faculty panel returns a downloadable CSV: `email, password`
+- Faculty distributes this CSV to students via Moodle, email, etc.
+
+```
+# Example student list input (plain text, one per line)
+alice@knox.edu
+bob@knox.edu
+carol@knox.edu
+
+# Example downloadable CSV output
+alice@knox.edu, maple-river-22
+bob@knox.edu, stone-bridge-47
+carol@knox.edu, silver-creek-91
+```
+
+Word-pair passwords are memorable enough that students won't immediately lose them, random enough to prevent guessing.
+
+**Regenerate passwords:** faculty can regenerate passwords for individual students who lose theirs. Old password is invalidated, new CSV row is shown.
+
+**Auth mode toggle:** faculty can switch the world between `open` and `accounts` mode. A warning is shown if switching from open to accounts mid-assignment (students already connected without passwords will lose access until they get a password).
 
 ### Submissions view
 
@@ -1307,7 +1363,7 @@ The Minecraft mod (KnoxCraftMod) remains the Java programming environment. This 
 ## 19. Open Questions
 
 - [ ] **Single-turtle `type` field:** Verify whether single-turtle programs emit `"type": "sequential"` or omit the field entirely. Parser handles both but good to confirm with a real v1 JSON sample.
-- [ ] **Token expiry:** How long should upload tokens be valid? Per-world? Per-semester? Currently unspecified — tokens don't expire until a decision is made.
+- [x] **Auth model:** Resolved. Two modes: open (email only, no password) and accounts (faculty uploads student list, generates passwords via faculty panel). No custom token system. No OAuth. No expiry — accounts last the duration of the world.
 - [ ] **build-atlas.js first run:** Run the script once against the Faithful 1.21.8 checkout and check the missing textures report. Some skull/head texture filenames may not match expectations — add missing entries to `FALLBACK_TEXTURES`. Commit the resulting `atlas.png` and `atlas.ts` before handing to Weirdo.
 - [ ] **Animated block textures:** Sea lantern, magma block, and a few others are animated in Faithful (MCMeta files). Currently using first frame only. Animation support is a v2 item.
 - [ ] **GitHub Pages URL:** Confirm final URL — `knoxel.github.io` requires a GitHub organization (extra setup); `jspacco.github.io/knoxel` works with Jaime's existing account. Update `VITE_WORKER_URL` CORS header and any hardcoded references once decided.

@@ -196,17 +196,18 @@ Goal: database schema in migrations, PocketBase running locally.
 
 ### Stage 4 — Auth
 
-Goal: a faculty member can get students identified and connected with zero external setup. Auth is tiered — see design.md section 7. Build Tier 0 first since it's the actual default; Tier 1 and Tier 2 are optional upgrades documented but not required to ship.
+Goal: students can identify themselves and upload programs. Two modes, selected at world creation. See design.md section 7 for the full spec.
 
 1. Write `lib/pocketbase.ts` — PocketBase client singleton, configured from env or window config
-2. Write `usePocketbase.ts` — session state, current player, works the same regardless of which auth tier is active
-3. **Tier 0 (build this first, it's the default):** simple "enter your name" UI in `App.tsx` — creates a `players` record with just `display_name`, stores a session identifier client-side, no password, no email
-4. Implement upload token generation on player creation and display it in the browser UI — this is identical across all tiers
-5. **Tier 1 (optional upgrade):** wire up PocketBase's built-in email/password auth as an alternate login path. Document setup in `docs/faculty-setup.md`.
-6. **Tier 2 (optional upgrade, lowest priority):** Google OAuth as an alternate login path if Jaime or another faculty member wants `@knox.edu` accounts. Document Google Cloud Console steps in `docs/faculty-setup.md` clearly marked optional.
-7. Verify: a student can open the browser, type a name, and see their upload token within seconds — no external account, no OAuth dance, no setup required by faculty.
+2. Write `usePocketbase.ts` — session state, current player, reads `world.auth_mode` to determine which login UI to show
+3. **Open mode login UI** — simple form: display name + Knox email, no password. Creates a `players` record, stores session in localStorage. This is the default.
+4. **Accounts mode login UI** — email + password form. Uses PocketBase's built-in auth. Show this when `world.auth_mode === 'accounts'`.
+5. **Java upload flow (open mode):** POST to `/api/collections/programs/records` with email and program JSON. No auth header needed — collection allows unauthenticated creates in open mode.
+6. **Java upload flow (accounts mode):** POST with PocketBase auth header (email/password exchange for auth token first).
+7. Verify open mode: student types email + display name, session created, can see program list, turtle spawns.
+8. Verify accounts mode: student logs in with email + generated password, same experience.
 
-**Do not make Tier 1 or Tier 2 a blocker for Stage 5.** Multiplayer should work fully on Tier 0 identity.
+**No custom token system. No OAuth. No Google Cloud Console. No expiry.**
 
 ### Stage 5 — Multiplayer
 
@@ -230,7 +231,9 @@ Goal: faculty can identify student submissions, download data, and control the w
 5. World controls — clear all blocks (with confirmation), clear one student's blocks, reset one student's turtle to spawn, pause/resume all turtles
 6. Stats panel — total blocks, total uploads, active students now, upload timeline sparkline
 7. "Join as Student" button — opens `/` in same browser with a faculty test account (`is_faculty = true`), admin session persists
-8. Verify: faculty can identify every student by email, download all submissions as JSON, pause all turtles, and join as a student to test the upload flow
+8. **Account management (accounts mode only):** upload student email list → generate word-pair passwords → create PocketBase auth accounts → return downloadable CSV of email+password pairs. See design.md section 9 for exact flow.
+9. **Auth mode toggle** in faculty panel — switch world between open and accounts mode. Show warning when switching from open to accounts mid-assignment.
+10. Verify: faculty can identify every student by email, download all submissions as JSON, pause all turtles, join as a student, and (in accounts mode) upload a student list and download the password CSV
 
 ### Stage 5.75 — Static tier: GitHub Pages + Cloudflare Worker
 
