@@ -1,0 +1,467 @@
+/**
+ * The Three.js world: scene, camera, blocks, turtles, render loop.
+ *
+ * All Three.js state lives behind `WorldScene` and is mutated imperatively.
+ * React renders the `<canvas>` exactly once and never touches the scene again
+ * (design.md section 4). The hook below is only a lifecycle wrapper.
+ */
+
+import { useEffect, useRef, useState } from 'react'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { ATLAS_COLS, ATLAS_ROWS, ATLAS_MAP, type BlockFaces } from '../lib/atlas'
+import { hashColor, isHexColor, parseHexColor } from '../lib/blockColors'
+import { TweenManager, linear } from '../lib/anim'
+import { TurtleMesh, type TurtleMeshOptions } from '../components/Turtle'
+import type { Facing, Vec3 } from '../lib/interpreter'
+
+const ATLAS_URL = `${import.meta.env.BASE_URL}textures/atlas.png`
+
+/** Blocks pop in over this long. Short enough to keep up at 20 ticks/second. */
+const BLOCK_POP_MS = 100
+
+const SKY_COLOR = 0x8ec7ee
+const GROUND_COLOR = 0x6aa84f
+/** Top surface of the unbreakable ground layer. Blocks start at y=1. */
+const GROUND_Y = 1
+const GROUND_SIZE = 400
+const GRID_SIZE = 200
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Block materials — atlas slicing and caching
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Owns the atlas texture, the per-tile texture clones, and the per-block
+ * materials. Everything is cached: a world with 10,000 stone blocks holds one
+ * stone material and one stone tile texture.
+ */
+class BlockMaterialLibrary {
+  private atlas: THREE.Texture | null = null
+  private readonly tileCache = new Map<number, THREE.Texture>()
+  private readonly materialCache = new Map<string, THREE.Material | THREE.Material[]>()
+
+  async load(url: string): Promise<void> {
+    const texture = await new THREE.TextureLoader().loadAsync(url)
+    // NearestFilter must be set on the source BEFORE any clone is made —
+    // setting it on a clone afterwards is unreliable. Without it the 32px
+    // textures blur into a smeared mess. See design.md section 14.
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+    texture.generateMipmaps = false
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
+    this.atlas = texture
+  }
+
+  /**
+   * One tile of the atlas as its own texture. `clone()` shares the underlying
+   * GPU upload, so ~350 tiles cost ~350 tiny objects and one texture in VRAM.
+   */
+  private tileTexture(index: number): THREE.Texture {
+    if (!this.atlas) throw new Error('Atlas texture not loaded')
+    const col = index % ATLAS_COLS
+    const row = Math.floor(index / ATLAS_COLS)
+
+    const tile = this.atlas.clone()
+    tile.needsUpdate = true
+
+    // Three.js UV origin is bottom-left; the PNG's row 0 is at the top.
+    // Without this flip every block renders someone else's texture.
+    tile.offset.set(col / ATLAS_COLS, 1 - (row + 1) / ATLAS_ROWS)
+    tile.repeat.set(1 / ATLAS_COLS, 1 / ATLAS_ROWS)
+    return tile
+  }
+
+  private getTile(index: number): THREE.Texture {
+    let tile = this.tileCache.get(index)
+    if (!tile) {
+      tile = this.tileTexture(index)
+      this.tileCache.set(index, tile)
+    }
+    return tile
+  }
+
+  /** Materials for a block ID, cached. Array of 6 for multi-face blocks. */
+  get(blockId: string): THREE.Material | THREE.Material[] {
+    let material = this.materialCache.get(blockId)
+    if (!material) {
+      material = this.build(blockId)
+      this.materialCache.set(blockId, material)
+    }
+    return material
+  }
+
+  /** Three resolution paths, in priority order. See design.md section 14. */
+  private build(blockId: string): THREE.Material | THREE.Material[] {
+    // Path 1 — hex colour from java.awt.Color.
+    if (isHexColor(blockId)) {
+      const { rgb, alpha, transparent } = parseHexColor(blockId)
+      return new THREE.MeshLambertMaterial({ color: rgb, transparent, opacity: alpha })
+    }
+
+    // Path 2 — known Minecraft block, textured from the atlas.
+    const faces: BlockFaces | undefined = ATLAS_MAP[blockId]
+    if (faces !== undefined && this.atlas) {
+      if (typeof faces === 'number') {
+        return new THREE.MeshLambertMaterial({ map: this.getTile(faces) })
+      }
+      // BoxGeometry face order: +x, -x, +y, -y, +z, -z.
+      return [
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.side) }),
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.side) }),
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.top) }),
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.bottom) }),
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.side) }),
+        new THREE.MeshLambertMaterial({ map: this.getTile(faces.side) }),
+      ]
+    }
+
+    // Path 3 — unknown block. Deterministic colour, never a crash.
+    return new THREE.MeshLambertMaterial({ color: hashColor(blockId) })
+  }
+
+  dispose(): void {
+    for (const material of this.materialCache.values()) {
+      if (Array.isArray(material)) material.forEach((m) => m.dispose())
+      else material.dispose()
+    }
+    this.materialCache.clear()
+    for (const tile of this.tileCache.values()) tile.dispose()
+    this.tileCache.clear()
+    this.atlas?.dispose()
+    this.atlas = null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scene
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function blockKey(position: Vec3): string {
+  return `${position.x},${position.y},${position.z}`
+}
+
+export interface PlacedBlock {
+  position: Vec3
+  blockId: string
+}
+
+export class WorldScene {
+  readonly scene = new THREE.Scene()
+  readonly camera: THREE.PerspectiveCamera
+  readonly tweens = new TweenManager()
+
+  private readonly renderer: THREE.WebGLRenderer
+  private readonly canvas: HTMLCanvasElement
+  private readonly materials = new BlockMaterialLibrary()
+  private readonly blockGeometry = new THREE.BoxGeometry(1, 1, 1)
+  private readonly blocks = new Map<string, { mesh: THREE.Mesh; blockId: string }>()
+  private readonly turtles = new Map<string, TurtleMesh>()
+  private orbit: OrbitControls | null = null
+
+  private animationFrame = 0
+  private lastFrameTime = 0
+  private elapsedSeconds = 0
+  private resizeObserver: ResizeObserver | null = null
+  private disposed = false
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas
+
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace
+
+    this.scene.background = new THREE.Color(SKY_COLOR)
+    this.scene.fog = new THREE.Fog(SKY_COLOR, 60, 240)
+
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000)
+    this.camera.position.set(14, 14, 20)
+    this.camera.lookAt(0, GROUND_Y, 0)
+
+    this.addLighting()
+    this.addGround()
+    this.resize()
+  }
+
+  /** Noon lighting: one strong overhead key light plus ambient fill. */
+  private addLighting(): void {
+    const sun = new THREE.DirectionalLight(0xffffff, 2.0)
+    sun.position.set(60, 120, 40)
+    this.scene.add(sun)
+
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.1))
+    // Slight sky/ground bounce keeps the undersides of blocks from going flat.
+    this.scene.add(new THREE.HemisphereLight(SKY_COLOR, GROUND_COLOR, 0.6))
+  }
+
+  private addGround(): void {
+    const geometry = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE)
+    const material = new THREE.MeshLambertMaterial({ color: GROUND_COLOR })
+    const ground = new THREE.Mesh(geometry, material)
+    ground.rotation.x = -Math.PI / 2
+    ground.position.y = GROUND_Y
+    ground.name = 'ground'
+    this.scene.add(ground)
+
+    const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x4a7a36, 0x5f9448)
+    grid.position.y = GROUND_Y + 0.002
+    const gridMaterial = grid.material as THREE.Material
+    gridMaterial.transparent = true
+    gridMaterial.opacity = 0.35
+    this.scene.add(grid)
+  }
+
+  async loadAtlas(): Promise<void> {
+    await this.materials.load(ATLAS_URL)
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Camera
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** Orbit / pan / zoom. Replaced by the full rig in Stage 1.5. */
+  enableOrbitControls(): void {
+    if (this.orbit) return
+    const controls = new OrbitControls(this.camera, this.canvas)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.08
+    controls.target.set(0, GROUND_Y, 0)
+    controls.maxPolarAngle = Math.PI / 2 - 0.02 // stay above the ground plane
+    controls.minDistance = 2
+    controls.maxDistance = 200
+    controls.update()
+    this.orbit = controls
+  }
+
+  /** Point the orbit camera at a world position, keeping the current distance. */
+  focusOn(position: Vec3): void {
+    if (!this.orbit) return
+    const target = new THREE.Vector3(position.x + 0.5, position.y + 0.5, position.z + 0.5)
+    const offset = this.camera.position.clone().sub(this.orbit.target)
+    this.orbit.target.copy(target)
+    this.camera.position.copy(target).add(offset)
+    this.orbit.update()
+  }
+
+  /** Frame a set of positions so all of them are visible at once. */
+  frameAll(positions: Vec3[], padding = 8): void {
+    if (!this.orbit || positions.length === 0) return
+    const box = new THREE.Box3()
+    for (const position of positions) {
+      box.expandByPoint(new THREE.Vector3(position.x + 0.5, position.y + 0.5, position.z + 0.5))
+    }
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const radius = Math.max(size.x, size.z, size.y, 1) / 2 + padding
+    const fov = (this.camera.fov * Math.PI) / 180
+    const distance = radius / Math.tan(fov / 2)
+
+    this.orbit.target.copy(center)
+    // Look down at roughly 45 degrees from the south-east.
+    this.camera.position.set(center.x + distance * 0.6, center.y + distance * 0.75, center.z + distance * 0.6)
+    this.orbit.update()
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Blocks
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Place (or replace) a block. Last write wins, matching the server's upsert
+   * on (world_id, x, y, z).
+   *
+   * `animate` drives the pop-in scale; pass false when hydrating an existing
+   * world, where thousands of simultaneous tweens would be pointless.
+   */
+  placeBlock(position: Vec3, blockId: string, animate = true): void {
+    if (position.y < GROUND_Y) return // nothing may be placed in the ground layer
+
+    const key = blockKey(position)
+    const existing = this.blocks.get(key)
+    if (existing) {
+      if (existing.blockId === blockId) return
+      this.scene.remove(existing.mesh)
+      this.blocks.delete(key)
+    }
+
+    const mesh = new THREE.Mesh(this.blockGeometry, this.materials.get(blockId))
+    mesh.position.set(position.x + 0.5, position.y + 0.5, position.z + 0.5)
+    this.scene.add(mesh)
+    this.blocks.set(key, { mesh, blockId })
+
+    if (animate) {
+      mesh.scale.setScalar(0.01)
+      void this.tweens.add(BLOCK_POP_MS, (t) => mesh.scale.setScalar(Math.max(0.01, t)), linear)
+    }
+  }
+
+  removeBlock(position: Vec3): void {
+    const key = blockKey(position)
+    const entry = this.blocks.get(key)
+    if (!entry) return
+    this.scene.remove(entry.mesh)
+    this.blocks.delete(key)
+  }
+
+  clearBlocks(): void {
+    for (const { mesh } of this.blocks.values()) this.scene.remove(mesh)
+    this.blocks.clear()
+  }
+
+  get blockCount(): number {
+    return this.blocks.size
+  }
+
+  /** Every placed block, for saving or exporting a solo world. */
+  listBlocks(): PlacedBlock[] {
+    const out: PlacedBlock[] = []
+    for (const [key, entry] of this.blocks) {
+      const [x, y, z] = key.split(',').map(Number)
+      out.push({ position: { x, y, z }, blockId: entry.blockId })
+    }
+    return out
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Turtles
+  // ───────────────────────────────────────────────────────────────────────────
+
+  addTurtle(id: string, position: Vec3, facing: Facing, options: TurtleMeshOptions): TurtleMesh {
+    this.removeTurtle(id)
+    const turtle = new TurtleMesh(position, facing, options)
+    this.scene.add(turtle.group)
+    this.turtles.set(id, turtle)
+    return turtle
+  }
+
+  getTurtle(id: string): TurtleMesh | undefined {
+    return this.turtles.get(id)
+  }
+
+  removeTurtle(id: string): void {
+    const turtle = this.turtles.get(id)
+    if (!turtle) return
+    turtle.dispose()
+    this.turtles.delete(id)
+  }
+
+  /** Remove every turtle whose id starts with `prefix` (e.g. all run threads). */
+  removeTurtlesWithPrefix(prefix: string): void {
+    for (const id of Array.from(this.turtles.keys())) {
+      if (id.startsWith(prefix)) this.removeTurtle(id)
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Render loop
+  // ───────────────────────────────────────────────────────────────────────────
+
+  start(): void {
+    if (this.animationFrame) return
+    this.lastFrameTime = performance.now()
+    const loop = (now: number) => {
+      if (this.disposed) return
+      const deltaMs = Math.min(now - this.lastFrameTime, 100) // clamp after tab switches
+      this.lastFrameTime = now
+      this.elapsedSeconds += deltaMs / 1000
+
+      this.tweens.update(deltaMs)
+      for (const turtle of this.turtles.values()) turtle.updateBob(this.elapsedSeconds)
+      this.orbit?.update()
+
+      this.renderer.render(this.scene, this.camera)
+      this.animationFrame = requestAnimationFrame(loop)
+    }
+    this.animationFrame = requestAnimationFrame(loop)
+  }
+
+  stop(): void {
+    if (this.animationFrame) cancelAnimationFrame(this.animationFrame)
+    this.animationFrame = 0
+  }
+
+  observeResize(element: HTMLElement): void {
+    this.resizeObserver = new ResizeObserver(() => this.resize())
+    this.resizeObserver.observe(element)
+  }
+
+  resize(): void {
+    const parent = this.canvas.parentElement
+    const width = parent?.clientWidth || this.canvas.clientWidth || window.innerWidth
+    const height = parent?.clientHeight || this.canvas.clientHeight || window.innerHeight
+    if (width === 0 || height === 0) return
+    this.renderer.setSize(width, height, false)
+    this.camera.aspect = width / height
+    this.camera.updateProjectionMatrix()
+  }
+
+  dispose(): void {
+    this.disposed = true
+    this.stop()
+    this.resizeObserver?.disconnect()
+    this.orbit?.dispose()
+    for (const turtle of this.turtles.values()) turtle.dispose()
+    this.turtles.clear()
+    this.clearBlocks()
+    this.blockGeometry.dispose()
+    this.materials.dispose()
+    this.renderer.dispose()
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UseWorldResult {
+  /** Null until the canvas is mounted and the atlas has loaded. */
+  world: WorldScene | null
+  atlasError: string | null
+}
+
+/**
+ * Create the scene once for the lifetime of the canvas.
+ *
+ * The returned `world` is a plain object, not React state that anything should
+ * re-render on — it changes identity exactly once, when the scene is ready.
+ */
+export function useWorld(canvasRef: React.RefObject<HTMLCanvasElement | null>): UseWorldResult {
+  const [world, setWorld] = useState<WorldScene | null>(null)
+  const [atlasError, setAtlasError] = useState<string | null>(null)
+  const sceneRef = useRef<WorldScene | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const scene = new WorldScene(canvas)
+    sceneRef.current = scene
+    scene.enableOrbitControls()
+    if (canvas.parentElement) scene.observeResize(canvas.parentElement)
+    scene.start()
+
+    let cancelled = false
+    scene
+      .loadAtlas()
+      .catch((error: unknown) => {
+        // A missing atlas degrades to hash colours rather than a blank screen.
+        const message = error instanceof Error ? error.message : String(error)
+        if (!cancelled) setAtlasError(`Texture atlas failed to load (${message}). Blocks will use flat colours.`)
+      })
+      .finally(() => {
+        if (!cancelled) setWorld(scene)
+      })
+
+    return () => {
+      cancelled = true
+      scene.dispose()
+      sceneRef.current = null
+      setWorld(null)
+    }
+  }, [canvasRef])
+
+  return { world, atlasError }
+}
