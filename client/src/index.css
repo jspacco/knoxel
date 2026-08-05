@@ -83,6 +83,17 @@ body {
   color: #fff7ed;
 }
 
+.viewport-pointer-lock-prompt {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  pointer-events: none;
+}
+
 .viewport-hint {
   position: absolute;
   bottom: 14px;

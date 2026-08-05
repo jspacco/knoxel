@@ -16,9 +16,11 @@ export interface WorldProps {
   loading: boolean
   /** Hint line describing the current camera mode and controls. */
   hint?: string
+  /** True in first-person mode before the pointer is locked — shows the capture overlay. */
+  showPointerLockPrompt?: boolean
 }
 
-export function World({ canvasRef, atlasError, loading, hint }: WorldProps) {
+export function World({ canvasRef, atlasError, loading, hint, showPointerLockPrompt }: WorldProps) {
   return (
     <div className="viewport">
       <canvas ref={canvasRef} className="viewport-canvas" />
@@ -28,6 +30,12 @@ export function World({ canvasRef, atlasError, loading, hint }: WorldProps) {
       {atlasError && (
         <div className="viewport-banner viewport-banner-warn" role="status">
           {atlasError}
+        </div>
+      )}
+
+      {showPointerLockPrompt && (
+        <div className="viewport-banner viewport-pointer-lock-prompt" role="status">
+          Click to capture mouse · ESC to exit
         </div>
       )}
 

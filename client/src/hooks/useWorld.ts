@@ -28,6 +28,25 @@ const GROUND_SIZE = 400
 const GRID_SIZE = 200
 
 // ─────────────────────────────────────────────────────────────────────────────
+// First-person camera rig — see design.md section 13
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CameraMode = 'orbit' | 'first-person'
+
+const FP_MOVE_UNITS_PER_SECOND = 8
+const FP_MOUSE_RADIANS_PER_PIXEL = 0.0025
+/** Clamp to +-89 degrees so looking straight up/down never flips the view. */
+const PITCH_LIMIT = (89 * Math.PI) / 180
+const FP_MOVE_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'])
+
+/** True when the event's target is a form control — F/WASD must not hijack typing. */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Block materials — atlas slicing and caching
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -167,6 +186,13 @@ export class WorldScene {
   private resizeObserver: ResizeObserver | null = null
   private disposed = false
 
+  private cameraModeValue: CameraMode = 'orbit'
+  private pointerLockedValue = false
+  private fpYaw = 0
+  private fpPitch = 0
+  private readonly moveKeys = new Set<string>()
+  private readonly modeListeners = new Set<(mode: CameraMode, locked: boolean) => void>()
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
 
@@ -222,7 +248,7 @@ export class WorldScene {
   // Camera
   // ───────────────────────────────────────────────────────────────────────────
 
-  /** Orbit / pan / zoom. Replaced by the full rig in Stage 1.5. */
+  /** Orbit / pan / zoom, active whenever the camera is not in first-person mode. */
   enableOrbitControls(): void {
     if (this.orbit) return
     const controls = new OrbitControls(this.camera, this.canvas)
@@ -234,6 +260,140 @@ export class WorldScene {
     controls.maxDistance = 200
     controls.update()
     this.orbit = controls
+  }
+
+  get cameraMode(): CameraMode {
+    return this.cameraModeValue
+  }
+
+  get pointerLocked(): boolean {
+    return this.pointerLockedValue
+  }
+
+  /** Called whenever camera mode or pointer-lock state changes, for the UI overlay/hint. */
+  onCameraModeChange(listener: (mode: CameraMode, locked: boolean) => void): () => void {
+    this.modeListeners.add(listener)
+    return () => this.modeListeners.delete(listener)
+  }
+
+  private notifyModeChange(): void {
+    for (const listener of this.modeListeners) listener(this.cameraModeValue, this.pointerLockedValue)
+  }
+
+  toggleCameraMode(): void {
+    this.setCameraMode(this.cameraModeValue === 'orbit' ? 'first-person' : 'orbit')
+  }
+
+  private setCameraMode(mode: CameraMode): void {
+    if (this.cameraModeValue === mode) return
+    this.cameraModeValue = mode
+    this.moveKeys.clear()
+
+    if (mode === 'first-person') {
+      if (this.orbit) this.orbit.enabled = false
+      // Derive yaw/pitch from the camera's current orientation so entering
+      // first-person never snaps the view.
+      const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ')
+      this.fpYaw = euler.y
+      this.fpPitch = euler.x
+    } else {
+      if (document.pointerLockElement === this.canvas) document.exitPointerLock()
+      this.pointerLockedValue = false
+      if (this.orbit) {
+        this.orbit.enabled = true
+        // Aim the orbit target at a point in front of the camera so switching
+        // back to orbit doesn't snap the view either.
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)
+        this.orbit.target.copy(this.camera.position).addScaledVector(forward, 10)
+        this.orbit.update()
+      }
+    }
+    this.notifyModeChange()
+  }
+
+  /**
+   * Pointer Lock API + WASD fly camera. Toggled against orbit mode with F.
+   * No gravity, no collision — students fly freely through blocks. See
+   * design.md section 13.
+   */
+  enableFirstPersonToggle(): void {
+    window.addEventListener('keydown', this.handleKeyDown)
+    window.addEventListener('keyup', this.handleKeyUp)
+    this.canvas.addEventListener('click', this.handleCanvasClick)
+    document.addEventListener('pointerlockchange', this.handlePointerLockChange)
+    document.addEventListener('mousemove', this.handleMouseMove)
+  }
+
+  private disableFirstPersonToggle(): void {
+    window.removeEventListener('keydown', this.handleKeyDown)
+    window.removeEventListener('keyup', this.handleKeyUp)
+    this.canvas.removeEventListener('click', this.handleCanvasClick)
+    document.removeEventListener('pointerlockchange', this.handlePointerLockChange)
+    document.removeEventListener('mousemove', this.handleMouseMove)
+  }
+
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (isTypingTarget(event.target)) return
+    if (event.code === 'KeyF') {
+      event.preventDefault()
+      this.toggleCameraMode()
+      return
+    }
+    if (this.cameraModeValue !== 'first-person') return
+    if (FP_MOVE_KEY_CODES.has(event.code)) {
+      this.moveKeys.add(event.code)
+      event.preventDefault()
+    }
+  }
+
+  private readonly handleKeyUp = (event: KeyboardEvent): void => {
+    this.moveKeys.delete(event.code)
+  }
+
+  /** Pointer Lock requires a user gesture — this is that gesture. */
+  private readonly handleCanvasClick = (): void => {
+    if (this.cameraModeValue === 'first-person' && document.pointerLockElement !== this.canvas) {
+      this.canvas.requestPointerLock()
+    }
+  }
+
+  private readonly handlePointerLockChange = (): void => {
+    const locked = document.pointerLockElement === this.canvas
+    this.pointerLockedValue = locked
+    // Escape (or losing the lock any other way) exits first-person entirely,
+    // per design.md — students must always be able to reach the Stop button.
+    if (!locked && this.cameraModeValue === 'first-person') {
+      this.setCameraMode('orbit')
+      return
+    }
+    this.notifyModeChange()
+  }
+
+  private readonly handleMouseMove = (event: MouseEvent): void => {
+    if (!this.pointerLockedValue || this.cameraModeValue !== 'first-person') return
+    this.fpYaw -= event.movementX * FP_MOUSE_RADIANS_PER_PIXEL
+    this.fpPitch -= event.movementY * FP_MOUSE_RADIANS_PER_PIXEL
+    this.fpPitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.fpPitch))
+    this.camera.quaternion.setFromEuler(new THREE.Euler(this.fpPitch, this.fpYaw, 0, 'YXZ'))
+  }
+
+  private updateFirstPersonMovement(deltaSeconds: number): void {
+    if (this.cameraModeValue !== 'first-person' || this.moveKeys.size === 0) return
+    const yawOnly = new THREE.Euler(0, this.fpYaw, 0, 'YXZ')
+    const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(this.fpPitch, this.fpYaw, 0, 'YXZ'))
+    const right = new THREE.Vector3(1, 0, 0).applyEuler(yawOnly)
+
+    const move = new THREE.Vector3()
+    if (this.moveKeys.has('KeyW')) move.add(forward)
+    if (this.moveKeys.has('KeyS')) move.sub(forward)
+    if (this.moveKeys.has('KeyD')) move.add(right)
+    if (this.moveKeys.has('KeyA')) move.sub(right)
+    if (move.lengthSq() > 0) move.normalize()
+    if (this.moveKeys.has('Space')) move.y += 1
+    if (this.moveKeys.has('ShiftLeft') || this.moveKeys.has('ShiftRight')) move.y -= 1
+    if (move.lengthSq() === 0) return
+
+    this.camera.position.addScaledVector(move, FP_MOVE_UNITS_PER_SECOND * deltaSeconds)
   }
 
   /** Point the orbit camera at a world position, keeping the current distance. */
@@ -370,7 +530,15 @@ export class WorldScene {
 
       this.tweens.update(deltaMs)
       for (const turtle of this.turtles.values()) turtle.updateBob(this.elapsedSeconds)
-      this.orbit?.update()
+
+      // OrbitControls.update() recomputes camera.position from its own stored
+      // spherical coordinates every call — running it while first-person owns
+      // the camera would fight the fly movement below and snap the view back.
+      if (this.cameraModeValue === 'orbit') {
+        this.orbit?.update()
+      } else {
+        this.updateFirstPersonMovement(deltaMs / 1000)
+      }
 
       this.renderer.render(this.scene, this.camera)
       this.animationFrame = requestAnimationFrame(loop)
@@ -401,6 +569,7 @@ export class WorldScene {
   dispose(): void {
     this.disposed = true
     this.stop()
+    this.disableFirstPersonToggle()
     this.resizeObserver?.disconnect()
     this.orbit?.dispose()
     for (const turtle of this.turtles.values()) turtle.dispose()
@@ -420,6 +589,8 @@ export interface UseWorldResult {
   /** Null until the canvas is mounted and the atlas has loaded. */
   world: WorldScene | null
   atlasError: string | null
+  cameraMode: CameraMode
+  pointerLocked: boolean
 }
 
 /**
@@ -427,10 +598,14 @@ export interface UseWorldResult {
  *
  * The returned `world` is a plain object, not React state that anything should
  * re-render on — it changes identity exactly once, when the scene is ready.
+ * `cameraMode`/`pointerLocked` are mirrored into React state so the panel hint
+ * and pointer-lock overlay can react to them.
  */
 export function useWorld(canvasRef: React.RefObject<HTMLCanvasElement | null>): UseWorldResult {
   const [world, setWorld] = useState<WorldScene | null>(null)
   const [atlasError, setAtlasError] = useState<string | null>(null)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
+  const [pointerLocked, setPointerLocked] = useState(false)
   const sceneRef = useRef<WorldScene | null>(null)
 
   useEffect(() => {
@@ -440,6 +615,11 @@ export function useWorld(canvasRef: React.RefObject<HTMLCanvasElement | null>): 
     const scene = new WorldScene(canvas)
     sceneRef.current = scene
     scene.enableOrbitControls()
+    scene.enableFirstPersonToggle()
+    const unsubscribe = scene.onCameraModeChange((mode, locked) => {
+      setCameraMode(mode)
+      setPointerLocked(locked)
+    })
     if (canvas.parentElement) scene.observeResize(canvas.parentElement)
     scene.start()
 
@@ -457,11 +637,12 @@ export function useWorld(canvasRef: React.RefObject<HTMLCanvasElement | null>): 
 
     return () => {
       cancelled = true
+      unsubscribe()
       scene.dispose()
       sceneRef.current = null
       setWorld(null)
     }
   }, [canvasRef])
 
-  return { world, atlasError }
+  return { world, atlasError, cameraMode, pointerLocked }
 }

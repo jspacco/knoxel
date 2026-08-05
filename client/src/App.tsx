@@ -15,7 +15,7 @@ import { MIN_Y } from './lib/interpreter'
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { world, atlasError } = useWorld(canvasRef)
+  const { world, atlasError, cameraMode, pointerLocked } = useWorld(canvasRef)
 
   const [programs, setPrograms] = useState<ParsedProgram[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -77,7 +77,12 @@ export default function App() {
         canvasRef={canvasRef}
         atlasError={atlasError}
         loading={!world}
-        hint="Left-drag to orbit · right-drag to pan · scroll to zoom"
+        hint={
+          cameraMode === 'first-person'
+            ? 'WASD fly · mouse look · Space/Shift up/down · F or Esc for orbit'
+            : 'Left-drag to orbit · right-drag to pan · scroll to zoom · F for first-person'
+        }
+        showPointerLockPrompt={cameraMode === 'first-person' && !pointerLocked}
       />
 
       <Panel

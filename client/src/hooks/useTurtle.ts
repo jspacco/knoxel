@@ -22,7 +22,7 @@ import {
 } from '../lib/interpreter'
 import { sleep } from '../lib/anim'
 import { threadColor } from '../lib/blockColors'
-import type { WorldScene } from './useWorld'
+import { isTypingTarget, type WorldScene } from './useWorld'
 
 export type RunState = 'idle' | 'running' | 'paused' | 'done'
 
@@ -293,6 +293,47 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     },
     [applyManual],
   )
+
+  // Arrow keys + Page Up/Down + Q/E, separate from the camera's WASD so both
+  // can be active at once (design.md section 13). nudge()/rotate() already
+  // no-op outside idle/done, so this listener doesn't need its own run-state
+  // guard.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return
+      switch (event.code) {
+        case 'ArrowUp':
+          nudge('forward')
+          break
+        case 'ArrowDown':
+          nudge('back')
+          break
+        case 'ArrowLeft':
+          nudge('left')
+          break
+        case 'ArrowRight':
+          nudge('right')
+          break
+        case 'PageUp':
+          nudge('up')
+          break
+        case 'PageDown':
+          nudge('down')
+          break
+        case 'KeyQ':
+          rotate('left')
+          break
+        case 'KeyE':
+          rotate('right')
+          break
+        default:
+          return
+      }
+      event.preventDefault()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [nudge, rotate])
 
   const reset = useCallback(() => {
     generationRef.current += 1

@@ -115,3 +115,92 @@ that was the last stage flagged as unblocked and it turns out to be
 unimplemented — the Panel UI already documents WASD/F/arrow-key/Q-E
 keybindings in its help text, but no keyboard or pointer-lock handling
 actually exists yet.
+
+## 2026-08-05 — Stage 1.5: camera rig (orbit/first-person) and turtle keyboard controls
+
+**Intent:** Continuing the same "pick up where we left off" session. The
+previous entry noted that `Panel.tsx`'s help text already documented WASD
+flight, F to toggle camera mode, arrow keys to move the turtle, and Q/E to
+rotate it — but none of it was wired up. `useTurtle.ts` already had
+`nudge()`/`rotate()`/`spawnAt()` implemented and gated to idle/done state,
+and `useWorld.ts` had `enableOrbitControls()` with a comment saying it would
+be "replaced by the full rig in Stage 1.5" — so the backing logic existed but
+the input layer never got built.
+
+**Prompt:** Same as the prior entry — "continue implementing the project
+described in [design/design.md]," picking up at Stage 1.5 once the
+interpreter fix and Load Sample dropdown were done and committed.
+
+**Changes:**
+- `hooks/useWorld.ts`: added a first-person fly camera to `WorldScene` —
+  Pointer Lock API on canvas click, WASD movement (yaw+pitch for
+  forward/back, yaw-only for strafe, so strafing doesn't tilt the view),
+  Space/Shift for up/down, mouse-look via `movementX/Y` with pitch clamped to
+  ±89° (the standard `PointerLockControls` Euler('YXZ') pattern). `F` toggles
+  between orbit and first-person (guarded against firing while typing in a
+  form field); losing pointer lock for any reason (Escape, tab switch)
+  drops back to orbit mode, per design.md section 13's requirement that
+  students always be able to reach the Stop button.
+- Important correctness fix caught before it shipped: `OrbitControls.update()`
+  recomputes `camera.position` from its own stored spherical coordinates
+  every call, regardless of `.enabled` — calling it unconditionally in the
+  render loop while first-person owned the camera would have silently
+  overwritten every frame of WASD movement. The loop now calls
+  `orbit.update()` only in orbit mode and `updateFirstPersonMovement()`
+  otherwise. Switching modes re-derives yaw/pitch from the camera's current
+  quaternion (entering first-person) or re-targets the orbit control at a
+  point ahead of the camera (returning to orbit), so neither transition snaps
+  the view.
+- `hooks/useWorld.ts` / `components/World.tsx` / `App.tsx`: `cameraMode` and
+  `pointerLocked` are mirrored into React state via a subscriber callback
+  (`onCameraModeChange`) and drive the bottom hint text and a new centered
+  "Click to capture mouse · ESC to exit" overlay (`viewport-pointer-lock-prompt`
+  in `index.css`), shown only while in first-person mode before the lock is
+  acquired, per design.md section 13.
+- `hooks/useTurtle.ts`: wired Arrow keys / Page Up/Down / Q/E to the existing
+  `nudge()`/`rotate()` calls via a `window` keydown listener, separate from
+  the camera's WASD listener so both work simultaneously without conflict
+  (design.md section 13). No new run-state guard was needed — `nudge()`/
+  `rotate()` already no-op outside idle/done via `isMovable()`.
+- Exported `isTypingTarget` from `useWorld.ts` and reused it in `useTurtle.ts`
+  so neither keyboard listener hijacks input while a student is typing in the
+  paste box or elsewhere in the panel.
+- Verified with a headless Playwright session against the dev server: `F`
+  toggles the hint text and shows/hides the overlay correctly; holding `W`
+  for 4 seconds in first-person flew the camera through the ground and up
+  into the sky (no collision, as intended) — confirmed visually via
+  screenshots, not just absence of errors; `Space` moved it back down.
+  Arrow/PageUp/PageDown/Q/E moved and rotated the turtle correctly relative
+  to its current facing (verified the exact coordinate deltas, e.g. strafing
+  left while facing east moved -z, matching `leftVector(turnLeft(facing))`).
+  Spamming all six turtle keys while a program was running left the run
+  button showing "Pause" throughout (i.e. still running, untouched) —
+  confirms the idle-only lock works under real keyboard input, not just at
+  the type level.
+- One thing I could not verify in this environment: actual Pointer Lock
+  acquisition. `canvas.requestPointerLock()` throws `WrongDocumentError: The
+  root document of this element is not valid for pointer lock` under
+  headless Chromium via Playwright — a known limitation of automated/headless
+  browser contexts, not a code path I can fix from here. The mouse-look
+  logic itself follows the same Euler('YXZ') approach used by three.js's own
+  `PointerLockControls` example, so it should work in a real browser tab;
+  Jaime, please click into the 3D view in an actual browser and confirm
+  mouse-look feels right — I have no way to simulate real mouse movement
+  events under an acquired lock from here.
+- design.md sections affected: none (implementation matches section 13 as
+  written).
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Please manually confirm mouse-look (yaw/pitch via Pointer
+Lock) in a real browser — see note above, this is the one piece of Stage 1.5
+I couldn't verify end-to-end in a headless environment. Everything else in
+Stage 1.5's build-order checklist (CLAUDE.md) is implemented and verified.
+Next unblocked stage is Stage 2 (threaded programs with smooth animation) —
+worth noting that inspecting the code, most of Stage 2 already appears to be
+implemented (tick loop in `useTurtle.ts`, per-thread colors, block pop-in
+animation) even though it was never logged in changes.md; I have not yet
+verified it against CLAUDE.md's Stage 2 checklist item-by-item (in
+particular, camera auto-switch to a wide/overhead view during threaded runs
+and auto-follow for single-thread runs — `WorldScene.frameAll()`/`focusOn()`
+exist but nothing in `useTurtle.ts`'s `run()` currently calls them). Will
+pick that up next unless you'd rather redirect.
