@@ -34,3 +34,13 @@ worker/node_modules/
 
 Classic-32x-Java/
 tmp
+
+# Gradle
+.gradle/
+build/
+
+# VS Code Java
+.classpath
+.project
+.settings/
+bin/

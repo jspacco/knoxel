@@ -189,6 +189,21 @@ knoxel/
 │   │   └── index.js               # ~30 lines, ephemeral program storage
 │   └── wrangler.toml              # Cloudflare deploy config
 │
+├── java-client/                       # Java turtle library (student-facing)
+│   ├── build.gradle
+│   ├── settings.gradle
+│   └── src/
+│       ├── main/java/edu/knox/knoxel/
+│       │   ├── AbstractTerp.java
+│       │   ├── Terp.java
+│       │   ├── ParallelTerp.java
+│       │   ├── TerpCommand.java
+│       │   ├── TerpInstruction.java
+│       │   ├── TerpBlockType.java
+│       │   └── KnoxelUploader.java
+│       └── test/java/edu/knox/knoxel/
+│           └── TerpTest.java          # generates samples/
+│
 ├── scripts/
 │   ├── build-atlas.js             # generate atlas.png + atlas.ts from Faithful textures
 │   ├── package.json               # scripts/ dependencies (sharp for image processing)
@@ -198,6 +213,13 @@ knoxel/
 │   ├── download-pocketbase.sh     # fetch correct binary for current platform
 │   └── package.sh                 # zip binaries for distribution
 │
+│   ├── public/
+│   │   ├── textures/
+│   │   │   └── atlas.png              # AUTO-GENERATED 1024×1024 texture atlas
+│   │   └── samples/                   # sample JSON programs — commit these
+│   │       ├── flag.json              # single-thread Mauritius flag (minecraft: block names)
+│   │       ├── pflag.json             # parallel Mauritius flag (4 threads, minecraft: names)
+│   │       └── pflag2.json            # parallel flag (hex colors incl. alpha, strafe sync)
 └── docs/
     ├── faculty-setup.md
     └── student-guide.md
@@ -593,25 +615,37 @@ Sequential programs are treated as a degenerate case of parallel (one thread). T
 
 #### Version 2 additions
 
-**Movement with n** — move n steps in one instruction. The `n` parameter is preserved in JSON (not pre-expanded) so research tooling retains semantic information.
+**Confirmed from real Java client output.** All commands and their parameter rules:
 
-| cmd | params | description |
-|---|---|---|
-| `forward` | `n` (int) | move n blocks in facing direction |
-| `back` | `n` (int) | move n blocks opposite facing direction |
-| `up` | `n` (int) | move n blocks up |
-| `down` | `n` (int) | move n blocks down (blocked at y=1) |
+| cmd | `n` | `blk` | description |
+|---|---|---|---|
+| `forward` | optional (default 1) | never | strafe forward n steps |
+| `back` | optional (default 1) | never | strafe back n steps |
+| `left` | optional (default 1) | never | strafe left n steps |
+| `right` | optional (default 1) | never | strafe right n steps |
+| `up` | optional (default 1) | never | move up n steps |
+| `down` | optional (default 1) | never | move down n steps (blocked at y=1) |
+| `turnLeft` | **never** | never | rotate 90° left (no n parameter) |
+| `turnRight` | **never** | never | rotate 90° right (no n parameter) |
+| `nop` | optional (default 1) | never | wait n ticks (thread synchronization) |
+| `setBlock` | **never** | required | place block at current position, don't move |
+| `setBlockForward` | optional (default 1) | required | place n blocks forward, end on last |
+| `setBlockBack` | optional (default 1) | required | place n blocks back, end on last |
+| `setBlockLeft` | optional (default 1) | required | place n blocks left, end on last |
+| `setBlockRight` | optional (default 1) | required | place n blocks right, end on last |
+| `setBlockUp` | optional (default 1) | required | place n blocks up, end on last |
+| `setBlockDown` | optional (default 1) | required | place n blocks down, end on last |
 
-**Line drawing commands** — place n blocks in the given direction. All six directions supported. Turtle facing does not change for horizontal commands. Vertical commands change turtle y position.
+**Key distinctions:**
+- `left`/`right` are **strafe** (translate sideways), not turn
+- `turnLeft`/`turnRight` are **rotate** (change facing), never take `n`
+- `setBlock` never takes `n` — it always places at current position only
+- All other commands default to n=1 when `n` is absent
 
-| cmd | params | description |
-|---|---|---|
-| `setBlockForward` | `n`, `blk` | place n blocks in facing direction, end on last |
-| `setBlockBack` | `n`, `blk` | place n blocks opposite facing direction, end on last |
-| `setBlockUp` | `n`, `blk` | place n blocks upward, end on last |
-| `setBlockDown` | `n`, `blk` | place n blocks downward, end on last |
-| `setBlockLeft` | `n`, `blk` | place n blocks to the left of facing, end on last |
-| `setBlockRight` | `n`, `blk` | place n blocks to the right of facing, end on last |
+**Thread sync patterns confirmed in samples:**
+- `nop(n)` — wait n ticks while other threads work
+- `left(n)` / `right(n)` — strafe n steps to reach a different starting position
+- Both patterns appear in the Mauritius flag samples
 
 #### setBlock semantics — place-then-move
 
@@ -643,17 +677,23 @@ Left/right directions are always relative to the turtle's current facing, not ab
 #### Version 2 JSON format
 
 ```json
-{ "cmd": "setBlockForward", "n": 4, "blk": "minecraft:stone" }
-{ "cmd": "setBlockUp",      "n": 3, "blk": "minecraft:dark_prismarine" }
-{ "cmd": "setBlockDown",    "n": 3, "blk": "minecraft:red_wool" }
-{ "cmd": "setBlockBack",    "n": 2, "blk": "minecraft:gold_block" }
-{ "cmd": "setBlockLeft",    "n": 5, "blk": "minecraft:blue_wool" }
-{ "cmd": "setBlockRight",   "n": 5, "blk": "minecraft:yellow_wool" }
+{ "cmd": "setBlockForward", "n": 12, "blk": "minecraft:red_wool" }
+{ "cmd": "setBlockUp",      "n": 3,  "blk": "minecraft:dark_prismarine" }
+{ "cmd": "setBlockDown",    "n": 3,  "blk": "minecraft:red_wool" }
+{ "cmd": "setBlockBack",    "n": 2,  "blk": "minecraft:gold_block" }
+{ "cmd": "setBlockLeft",    "n": 5,  "blk": "minecraft:blue_wool" }
+{ "cmd": "setBlockRight",   "n": 5,  "blk": "minecraft:yellow_wool" }
 { "cmd": "forward",         "n": 10 }
-{ "cmd": "up",              "n": 5  }
+{ "cmd": "back",            "n": 11 }
+{ "cmd": "right",           "n": 4  }
+{ "cmd": "nop",             "n": 12 }
 ```
 
-The interpreter expands these at runtime. The `n` parameter is never pre-expanded into individual instructions in the JSON — this preserves semantic information for research tooling (was this a loop or a shorthand call?).
+The interpreter expands these at runtime — each tick consumes one sub-step of an `n`-instruction. The `n` parameter is never pre-expanded into individual instructions in the JSON. This preserves semantic information for research tooling (was this a loop or a shorthand call?).
+
+**Common pattern confirmed in sample files:** `setBlockForward(n:12)` draws 12 blocks forward, turtle ends on block 12. Then `back(n:11)` returns turtle to start (12 placed - 1 = 11 moves back). This is the canonical way to draw a line and return to origin.
+
+**Sample file location:** `client/public/samples/` — Vite serves these as static files at `/samples/flag.json` etc. The browser can fetch them directly by URL. The UI should include a "load sample" dropdown that fetches these files, giving students and faculty a quick way to see example programs without uploading anything.
 
 #### Block color values
 
@@ -1364,6 +1404,7 @@ The Minecraft mod (KnoxCraftMod) remains the Java programming environment. This 
 
 - [ ] **Single-turtle `type` field:** Verify whether single-turtle programs emit `"type": "sequential"` or omit the field entirely. Parser handles both but good to confirm with a real v1 JSON sample.
 - [x] **Auth model:** Resolved. Two modes: open (email only, no password) and accounts (faculty uploads student list, generates passwords via faculty panel). No custom token system. No OAuth. No expiry — accounts last the duration of the world.
+- [x] **JSON format v2:** Confirmed from real Java client output. See section 10 and `samples/` directory.
 - [ ] **build-atlas.js first run:** Run the script once against the Faithful 1.21.8 checkout and check the missing textures report. Some skull/head texture filenames may not match expectations — add missing entries to `FALLBACK_TEXTURES`. Commit the resulting `atlas.png` and `atlas.ts` before handing to Weirdo.
 - [ ] **Animated block textures:** Sea lantern, magma block, and a few others are animated in Faithful (MCMeta files). Currently using first frame only. Animation support is a v2 item.
 - [ ] **GitHub Pages URL:** Confirm final URL — `knoxel.github.io` requires a GitHub organization (extra setup); `jspacco.github.io/knoxel` works with Jaime's existing account. Update `VITE_WORKER_URL` CORS header and any hardcoded references once decided.
