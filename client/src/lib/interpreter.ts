@@ -72,16 +72,19 @@ export const MIN_Y = 1
  * See design.md section 10 for the command reference.
  */
 export type Instruction =
-  // v1 movement
+  // movement — strafe in place, facing never changes
   | { cmd: 'forward'; n?: number }
   | { cmd: 'back'; n?: number }
   | { cmd: 'up'; n?: number }
   | { cmd: 'down'; n?: number }
-  | { cmd: 'left' }
-  | { cmd: 'right' }
-  // v1 block placement and synchronisation
+  | { cmd: 'left'; n?: number }
+  | { cmd: 'right'; n?: number }
+  // rotation — changes facing, never takes n (design.md section 10)
+  | { cmd: 'turnLeft' }
+  | { cmd: 'turnRight' }
+  // block placement and synchronisation
   | { cmd: 'setBlock'; blk: string }
-  | { cmd: 'nop' }
+  | { cmd: 'nop'; n?: number }
   // v2 line drawing
   | { cmd: 'setBlockForward'; n?: number; blk: string }
   | { cmd: 'setBlockBack'; n?: number; blk: string }
@@ -97,6 +100,8 @@ export const KNOWN_COMMANDS: ReadonlySet<string> = new Set([
   'down',
   'left',
   'right',
+  'turnLeft',
+  'turnRight',
   'setBlock',
   'nop',
   'setBlockForward',
@@ -178,13 +183,20 @@ export function expandInstruction(instruction: Instruction, facing: Facing): Mic
     case 'down':
       return repeatMove(DOWN, stepCount(instruction))
 
+    // Strafe sideways — facing never changes. See design.md section 10:
+    // v2 confirmed `left`/`right` are movement, distinct from `turnLeft`/`turnRight`.
     case 'left':
-      return [{ turn: turnLeft(facing) }]
+      return repeatMove(leftVector(facing), stepCount(instruction))
     case 'right':
+      return repeatMove(rightVector(facing), stepCount(instruction))
+
+    case 'turnLeft':
+      return [{ turn: turnLeft(facing) }]
+    case 'turnRight':
       return [{ turn: turnRight(facing) }]
 
     case 'nop':
-      return [NOP_STEP]
+      return repeatNop(stepCount(instruction))
 
     case 'setBlock':
       return [{ place: instruction.blk }]
@@ -211,6 +223,11 @@ export function expandInstruction(instruction: Instruction, facing: Facing): Mic
 function repeatMove(direction: Vec3, count: number): MicroStep[] {
   if (count === 0) return [NOP_STEP]
   return Array.from({ length: count }, () => ({ move: direction }))
+}
+
+function repeatNop(count: number): MicroStep[] {
+  if (count === 0) return [NOP_STEP]
+  return Array.from({ length: count }, () => NOP_STEP)
 }
 
 /**
@@ -381,6 +398,16 @@ interface RawPayload {
 }
 
 /**
+ * The shape `KnoxelUploader` actually POSTs for a single upload: no
+ * playerName/programName nesting, just the payload directly plus `email` and
+ * `program` alongside it. Confirmed from the committed sample files.
+ */
+interface RawFlatPayload extends RawPayload {
+  email?: string
+  program?: string
+}
+
+/**
  * Normalise one KnoxCraftMod payload into a thread list.
  *
  * `"type": "parallel"` means `threads` is an array of bare instruction arrays.
@@ -408,21 +435,56 @@ function sanitizeInstructions(raw: unknown): Instruction[] {
   return out
 }
 
+/** True when `value` is a payload directly (has `threads` or `instructions`), not a playerName map. */
+function isFlatPayload(value: Record<string, unknown>): boolean {
+  return Array.isArray(value.threads) || Array.isArray(value.instructions)
+}
+
 /**
- * Parse a whole KnoxCraftMod JSON file: `playerName -> programName -> payload`.
+ * A single upload's JSON is a flat payload — `KnoxelUploader` POSTs
+ * `{version, email, program, description, threads}` directly, no
+ * playerName/programName nesting. See design.md section 10.
+ */
+function parseFlatPayload(payload: RawFlatPayload): ParseResult {
+  const threads = parsePayload(payload).filter((thread) => thread.length > 0)
+  if (threads.length === 0) {
+    return { programs: [], issues: [{ message: 'No instructions found.' }] }
+  }
+  return {
+    programs: [
+      {
+        playerName: payload.email ?? 'unknown',
+        programName: payload.program ?? 'program',
+        description: typeof payload.description === 'string' ? payload.description : undefined,
+        threads,
+      },
+    ],
+    issues: [],
+  }
+}
+
+/**
+ * Parse a whole KnoxCraftMod JSON file.
+ *
+ * Two top-level shapes are accepted: a single upload's flat payload
+ * (`{email, program, threads}` — what the real Java client POSTs), or a
+ * bundle of many programs keyed `playerName -> programName -> payload`.
  *
  * Returns every program found plus a list of human-readable issues, so the UI
  * can show partial results for a file that is mostly valid.
  */
 export function parseProgramFile(json: unknown): ParseResult {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    return { programs: [], issues: [{ message: 'Expected a JSON object.' }] }
+  }
+
+  const root = json as Record<string, unknown>
+  if (isFlatPayload(root)) return parseFlatPayload(root as RawFlatPayload)
+
   const programs: ParsedProgram[] = []
   const issues: ProgramParseIssue[] = []
 
-  if (!json || typeof json !== 'object' || Array.isArray(json)) {
-    return { programs, issues: [{ message: 'Expected a JSON object of playerName → programName → payload.' }] }
-  }
-
-  for (const [playerName, programMap] of Object.entries(json as Record<string, unknown>)) {
+  for (const [playerName, programMap] of Object.entries(root)) {
     if (!programMap || typeof programMap !== 'object' || Array.isArray(programMap)) {
       issues.push({ message: `Skipped "${playerName}": expected an object of program names.` })
       continue

@@ -1,9 +1,10 @@
 /**
- * Getting a program into the browser: drop a file, paste JSON, or pick one
- * that is already loaded.
+ * Getting a program into the browser: drop a file, paste JSON, load a
+ * committed sample, or pick one that is already loaded.
  *
- * A single KnoxCraftMod file is `playerName -> programName -> payload`, so one
- * file can carry several programs. They all land in the same list.
+ * A real upload is one flat payload (`{email, program, threads}`); a bundled
+ * file keyed `playerName -> programName -> payload` can carry several
+ * programs. Both land in the same list — see `parseProgramFile`.
  */
 
 import { useCallback, useRef, useState } from 'react'
@@ -23,6 +24,13 @@ export interface ProgramLoaderProps {
   disabled?: boolean
 }
 
+/** Ground truth sample files — see client/public/samples/, fetched by URL, never hardcoded inline. */
+const SAMPLES = [
+  { file: 'flag.json', label: 'Mauritius flag — single thread' },
+  { file: 'pflag.json', label: 'Mauritius flag — 4 threads' },
+  { file: 'pflag2.json', label: 'Mauritius flag — 4 threads, hex colors' },
+]
+
 export function ProgramLoader({
   programs,
   selectedIndex,
@@ -34,6 +42,7 @@ export function ProgramLoader({
   const [dragging, setDragging] = useState(false)
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
+  const [sampleLoading, setSampleLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const ingest = useCallback(
@@ -50,6 +59,22 @@ export function ProgramLoader({
       if (parsed.length > 0) onLoaded(parsed, sourceLabel)
     },
     [onLoaded, onError],
+  )
+
+  const loadSample = useCallback(
+    async (file: string) => {
+      setSampleLoading(true)
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}samples/${file}`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        ingest(await response.text(), file)
+      } catch (error) {
+        onError(`${file}: could not be fetched (${error instanceof Error ? error.message : 'network error'}).`)
+      } finally {
+        setSampleLoading(false)
+      }
+    },
+    [ingest, onError],
   )
 
   const readFiles = useCallback(
@@ -102,6 +127,26 @@ export function ProgramLoader({
           }}
         />
       </div>
+
+      <label className="slider-label" htmlFor="load-sample">
+        Load sample
+      </label>
+      <select
+        id="load-sample"
+        value=""
+        disabled={sampleLoading}
+        onChange={(event) => {
+          const file = event.target.value
+          if (file) void loadSample(file)
+        }}
+      >
+        <option value="">{sampleLoading ? 'Loading…' : 'Choose a sample…'}</option>
+        {SAMPLES.map((sample) => (
+          <option key={sample.file} value={sample.file}>
+            {sample.label}
+          </option>
+        ))}
+      </select>
 
       <button type="button" className="link-button" onClick={() => setPasteOpen((open) => !open)}>
         {pasteOpen ? 'Hide paste box' : 'Paste JSON instead'}
