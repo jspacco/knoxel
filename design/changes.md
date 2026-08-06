@@ -344,3 +344,103 @@ call: for opt-in auto-follow, I went with the checkbox option (kept the
 feature, made it opt-in) rather than deleting `followTurtle`/`frameThreads`
 entirely, since the prompt offered both and the checkbox preserves useful
 functionality for anyone who does want the camera to track the turtle.
+
+## 2026-08-05 — Stage 3: PocketBase schema in migrations, running locally
+
+**Intent:** Jaime asked to implement "part 3 of design.md," which — after I
+confirmed with him — meant CLAUDE.md's Stage 3 (not design.md's own section
+3, "Deployment Tiers"): get the PocketBase schema defined as versioned
+migrations and PocketBase actually running locally against that schema, per
+CLAUDE.md's five-item Stage 3 checklist. This is the first server-side stage;
+everything before this was client-only.
+
+**Prompt:** "ok, implement part 3 of the design.md file." (Clarified via a
+follow-up question to mean CLAUDE.md's Stage 3 build-order item.)
+
+**Changes:**
+- `scripts/download-pocketbase.sh` — fetches the official PocketBase binary
+  release (default pinned version `0.39.10`, overridable via `--version` or
+  `POCKETBASE_VERSION`) for the current platform/arch (auto-detected from
+  `uname`, or overridable via `--platform`/`--arch` for cross-downloading a
+  Windows/Linux binary from a Mac, needed later for `package.sh`). Verifies
+  the download against the release's `checksums.txt` (sha256) before
+  installing to `server/pocketbase[.exe]` — not built from source, per
+  design.md section 17.
+- `server/pb_migrations/001_initial_schema.js` — creates `worlds`, `players`,
+  `programs`, `blocks` base collections with the fields from design.md
+  section 6 (relations wired via `collectionId` from the just-created
+  collection's `.id`, confirmed to work as expected — `app.save()` mutates
+  the passed object in place). API rules (list/view/create/update/delete)
+  are deliberately left unset (superusers-only for now) — CLAUDE.md scopes
+  the open-mode "unauthenticated creates" behavior to Stage 4, which depends
+  on the login flow that doesn't exist yet, so wiring rules now would be
+  guessing ahead of that stage.
+- `server/pb_migrations/002_add_indexes.js` — adds the unique index on
+  `blocks (world_id, x, y, z)` from design.md section 6 ("last write wins via
+  upsert") as its own migration, per CLAUDE.md's explicit split between
+  schema (001) and indexes (002).
+- `server/pb_hooks/programs.pb.js` — `onRecordCreateRequest` hook on
+  `programs` that computes `instruction_count`/`thread_count` from
+  `json_content` before save, mirroring the `type: "parallel"` vs.
+  `instructions` discriminator in `client/src/lib/interpreter.ts`'s
+  `parsePayload()` (design.md section 10). Never crashes on malformed
+  `json_content` — falls back to 0/0, same defensive posture as the client's
+  unknown-block-ID handling.
+- `scripts/dev.sh` — runs `server/pocketbase serve` and `client`'s `npm run
+  dev` together, auto-downloading the binary first if missing, with a trap
+  to kill both on exit. `client/vite.config.ts` already proxied `/api`/`/_`
+  to `127.0.0.1:8090` from an earlier session, so no change was needed there
+  — checked and confirmed still correct against the new schema.
+- Two real bugs caught by testing against an actual running PocketBase
+  instance rather than just reading the migration back:
+  1. `turtle_x`/`turtle_y`/`turtle_z` (players) and `x`/`y`/`z` (blocks) were
+     initially marked `required: true`. PocketBase's `NumberField.required`
+     means *non-zero*, not *present* — this silently rejected the extremely
+     common case of a turtle or block sitting at the world origin (x=0 or
+     z=0). Removed `required` from all six coordinate fields; confirmed a
+     player at `(0, 1, 0)` and a block at `(0, 1, 0)` both save correctly
+     now.
+  2. The `programs.pb.js` hook's counting logic was originally a top-level
+     `function countProgram(payload) {...}` called from inside the
+     `onRecordCreateRequest` callback. This evaluated fine at server start
+     but threw `ReferenceError: countProgram is not defined` at actual
+     request time — PocketBase's JSVM does not reliably preserve a plain
+     function declared elsewhere in the file in scope when the hook fires.
+     Fixed by inlining the counting logic directly in the callback.
+  3. (Related, not a bug exactly, but worth recording since it cost real
+     debugging time) `e.record.get('json_content')` on a JSON-type field
+     does **not** return a parsed object or even a string — it returns the
+     raw UTF-8 bytes as a numeric array. `e.record.unmarshalJSONField(key,
+     obj)` exists but does not populate a plain JS object passed to it from
+     this JSVM. `e.record.getString('json_content')` is the one that returns
+     the actual JSON text; `JSON.parse()` that. If a future hook needs to
+     read a JSON field, use `getString` + `JSON.parse`, not `get`.
+- Verified end-to-end against a real, freshly-downloaded PocketBase
+  v0.39.10 binary, not just by reading the migration files back:
+  `./pocketbase migrate up` applies both migrations cleanly; fetched the
+  live schema via the superuser API and confirmed every field, type,
+  relation `collectionId`, and the `blocks` unique index match design.md
+  section 6 exactly; created a world → player → two programs (single-turtle
+  and 2-thread) → a block at the origin via the REST API and confirmed
+  `instruction_count`/`thread_count` compute correctly (3/1 and 6/2) and a
+  duplicate block at the same `(world_id, x, y, z)` is rejected (400) by the
+  unique index; ran a full `migrate down 1` ×2 → `migrate up` round-trip and
+  re-verified the schema afterward — clean in both directions, no leftover
+  state. Test PocketBase data (`server/pb_data/`) was deleted afterward —
+  it's gitignored and was local verification scaffolding only.
+- design.md sections affected: none — this implements section 6 (Database
+  Schema) and section 17 (Deployment) exactly as already specified.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Two things worth your attention, both flagged rather than
+silently decided:
+1. The pinned PocketBase version (`0.39.10`) was the actual latest release
+   at the time I wrote the script (checked against the GitHub releases API,
+   not guessed) — bump it via `--version`/`POCKETBASE_VERSION` whenever you
+   want a newer one; nothing auto-updates.
+2. API access rules (who can create/read/update players, programs, blocks
+   without a superuser session) are still unset. This isn't an oversight —
+   CLAUDE.md's Stage 4 (Auth) is explicitly where open-mode's "unauthenticated
+   creates allowed" behavior gets wired up, and I didn't want to guess at
+   rule strings ahead of the login flow that determines them. Next unblocked
+   stage is Stage 4.
