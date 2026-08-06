@@ -186,6 +186,24 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     callbacksRef.current.onTurtleMoved?.(next)
   }, [])
 
+  /**
+   * Wide/overhead framing for threaded runs, auto-follow for single-thread
+   * ones — auto-follow is meaningless once turtles head in different
+   * directions at once. See design.md section 13, CLAUDE.md Stage 2 item 8.
+   */
+  const syncCamera = useCallback(
+    (states: TurtleState[]) => {
+      if (!world || states.length === 0) return
+      const positions = states.map((state) => ({ x: state.x, y: state.y, z: state.z }))
+      if (states.length > 1) {
+        world.frameThreads(positions)
+      } else {
+        world.followTurtle(positions[0])
+      }
+    },
+    [world],
+  )
+
   // Create the idle turtle as soon as the scene exists.
   useEffect(() => {
     if (!world) return
@@ -338,6 +356,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
   const reset = useCallback(() => {
     generationRef.current += 1
     world?.tweens.finishAll()
+    world?.resetAutoFollow()
     setRunStateBoth('idle')
     const single = createTurtleState([], SPAWN_POSITION, SPAWN_FACING)
     statesRef.current = [single]
@@ -419,6 +438,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
           setTick(ticks)
           publishThreads(statesRef.current)
           publishTransform(statesRef.current[0])
+          syncCamera(statesRef.current)
         }
       }
 
@@ -432,7 +452,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
       appendLog(finished ? `Program finished after ${ticks} ticks.` : `Stopped after ${ticks} ticks.`)
       callbacksRef.current.onRunEnded?.(finished ? 'finished' : 'stopped')
     },
-    [world, publishThreads, publishTransform, setRunStateBoth, appendLog],
+    [world, publishThreads, publishTransform, syncCamera, setRunStateBoth, appendLog],
   )
 
   const run = useCallback(
@@ -441,6 +461,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
       generationRef.current += 1
       const generation = generationRef.current
       world.tweens.finishAll()
+      world.resetAutoFollow()
 
       const origin = { ...transformRef.current.position }
       const facing = transformRef.current.facing
@@ -450,6 +471,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
       )
       syncMeshes(statesRef.current, true)
       publishThreads(statesRef.current)
+      syncCamera(statesRef.current)
       setTick(0)
 
       const threadCount = program.threads.length
@@ -460,7 +482,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
       setRunStateBoth('running')
       void runLoop(generation)
     },
-    [world, syncMeshes, publishThreads, appendLog, setRunStateBoth, runLoop],
+    [world, syncMeshes, publishThreads, syncCamera, appendLog, setRunStateBoth, runLoop],
   )
 
   const pause = useCallback(() => {

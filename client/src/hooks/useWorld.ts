@@ -193,6 +193,13 @@ export class WorldScene {
   private readonly moveKeys = new Set<string>()
   private readonly modeListeners = new Set<(mode: CameraMode, locked: boolean) => void>()
 
+  /**
+   * Orbit mode auto-follows the running turtle until the student manually
+   * orbits/pans/zooms — see design.md section 13. Only meaningful in orbit
+   * mode; first-person is always fully manual.
+   */
+  private autoFollowEnabled = true
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
 
@@ -259,6 +266,11 @@ export class WorldScene {
     controls.minDistance = 2
     controls.maxDistance = 200
     controls.update()
+    // Dispatched only from real pointer/wheel input (OrbitControls ignores
+    // input entirely while `enabled` is false, i.e. in first-person mode).
+    controls.addEventListener('start', () => {
+      this.autoFollowEnabled = false
+    })
     this.orbit = controls
   }
 
@@ -423,6 +435,32 @@ export class WorldScene {
     // Look down at roughly 45 degrees from the south-east.
     this.camera.position.set(center.x + distance * 0.6, center.y + distance * 0.75, center.z + distance * 0.6)
     this.orbit.update()
+  }
+
+  /** Re-arm auto-follow, e.g. when a fresh program run starts. */
+  resetAutoFollow(): void {
+    this.autoFollowEnabled = true
+  }
+
+  /**
+   * Track a single running turtle in orbit mode. No-op once the student has
+   * manually orbited/panned/zoomed, and no-op entirely in first-person (the
+   * camera there is always fully manual). See design.md section 13.
+   */
+  followTurtle(position: Vec3): void {
+    if (!this.autoFollowEnabled || this.cameraModeValue !== 'orbit') return
+    this.focusOn(position)
+  }
+
+  /**
+   * Wide/overhead view keeping every thread in frame — used while a threaded
+   * program runs, since "auto-follow" is meaningless when turtles head in
+   * different directions at once. See design.md section 11 and CLAUDE.md
+   * Stage 2. Orbit-mode only, same reasoning as `followTurtle`.
+   */
+  frameThreads(positions: Vec3[]): void {
+    if (this.cameraModeValue !== 'orbit') return
+    this.frameAll(positions)
   }
 
   // ───────────────────────────────────────────────────────────────────────────

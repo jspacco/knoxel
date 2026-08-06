@@ -204,3 +204,69 @@ particular, camera auto-switch to a wide/overhead view during threaded runs
 and auto-follow for single-thread runs — `WorldScene.frameAll()`/`focusOn()`
 exist but nothing in `useTurtle.ts`'s `run()` currently calls them). Will
 pick that up next unless you'd rather redirect.
+
+## 2026-08-05 — Stage 2: camera auto-follow / wide-view during runs
+
+**Intent:** Jaime said "go ahead and work on stage 2." The previous entry had
+already found that most of Stage 2 was implemented (tick loop, per-thread
+colors, block pop-in) despite never being logged, with one concrete gap:
+CLAUDE.md's Stage 2 item 8 and design.md section 13 both call for the camera
+to auto-follow a single running turtle and switch to a wide/overhead view
+that keeps every turtle in frame during a threaded run, and neither existed
+— `WorldScene` had the underlying `focusOn()`/`frameAll()` primitives from
+Stage 1.5 but nothing called them during a run.
+
+**Prompt:** "ok, go ahead and work on stage 2."
+
+**Changes:**
+- `hooks/useWorld.ts`: added `autoFollowEnabled` state to `WorldScene`,
+  defaulting to true and flipping false on OrbitControls' `'start'` event —
+  which only fires from genuine pointer/wheel input, never from programmatic
+  calls, and never at all while `orbit.enabled === false` (first-person
+  mode). Added three methods: `resetAutoFollow()` (re-arms it), `followTurtle
+  (position)` (auto-follow gate + orbit-mode gate, then `focusOn`), and
+  `frameThreads(positions)` (orbit-mode gate, then `frameAll`). Both
+  `followTurtle`/`frameThreads` are no-ops in first-person mode — the camera
+  there is always fully manual, per design.md's "camera and turtle are
+  separate objects."
+- `hooks/useTurtle.ts`: added `syncCamera(states)` — calls `frameThreads` for
+  more than one thread, `followTurtle` for exactly one — and wired it into
+  `run()` (immediately, so framing is correct from tick zero) and into the
+  same ~100ms UI-throttle block in `runLoop` that already publishes
+  thread/transform state, so the camera keeps re-framing as threads spread
+  apart during a run without adding a separate timer. `run()` now also calls
+  `world.resetAutoFollow()` so a fresh Run always starts with auto-follow
+  armed regardless of what a previous run's manual orbiting left it at;
+  `reset()` does the same, since design.md phrases the manual-interaction
+  override as lasting "until reset."
+- Verified with a headless Playwright session against the dev server,
+  screenshot-by-screenshot, not just absence of errors:
+  - `pflag.json` (4 threads): at tick 1 the camera framed a near-point
+    bounding box (three of four threads happened to coincide at the same
+    cell after their first strafe tick — a real, expected transient of the
+    nop/strafe synchronization pattern, not a bug) and zoomed in
+    accordingly; by mid-run all four distinctly-colored, correctly-labeled
+    threads were visible together in a wider overhead shot, confirming
+    `frameThreads` re-fits continuously as threads diverge.
+  - `flag.json` (1 thread): camera visibly translated in step with the
+    turtle between a screenshot at tick ~3 and one at tick ~58, the flag
+    staying in the same relative position in frame — auto-follow is
+    actually tracking, not just not-crashing.
+  - Simulated a manual orbit drag (`page.mouse.down/move/up` on the canvas)
+    mid-run, then compared two screenshots 2 seconds apart while the turtle
+    kept moving (tick 74 → 110, position changed): the view was identical
+    between them, confirming the manual interaction correctly and durably
+    disabled auto-follow rather than it resuming on the next throttled
+    update.
+- design.md sections affected: none (implementation matches sections 11/13
+  as written).
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None. Stage 2's build-order checklist (CLAUDE.md) is now
+fully implemented and verified, including the item this entry closes.
+Reminder from the last entry still stands: I have no way to verify actual
+Pointer Lock mouse-look in this headless environment, so that one piece of
+Stage 1.5 still wants a manual check in a real browser tab. Next unblocked
+stage is Stage 3 (PocketBase schema) — that's a server/deployment stage
+rather than a client one, so it's a bigger scope change; let me know if
+you'd like me to continue straight into it or pause here.
