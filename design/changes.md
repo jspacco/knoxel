@@ -444,3 +444,170 @@ silently decided:
    creates allowed" behavior gets wired up, and I didn't want to guess at
    rule strings ahead of the login flow that determines them. Next unblocked
    stage is Stage 4.
+
+## 2026-08-06 — Implement Stage 4 (authentication and identity)
+
+**Intent:** Jaime asked to implement Stage 4 from design.md — students need a
+way to identify themselves (open mode: display name + Knox email, no
+password; accounts mode: faculty-issued email + password) so uploads and
+turtle sessions can be attributed to a real student, per design.md section 7.
+
+**Prompt:** "let's implement stage 4 on authentication as described in
+design/design.md" (a later message — "ok, more credits added, please finish
+stage 4" — confirmed continuing the same task after a session gap).
+
+**Changes:**
+
+- `server/pb_migrations/003_stage4_auth.js` — the core schema change.
+  `players` becomes a PocketBase **auth** collection (was `base`) so
+  accounts-mode login can use PocketBase's built-in `authWithPassword` and
+  bcrypt storage directly. Two things that only surfaced by testing against
+  a real running PocketBase 0.39.10 instance, not by reading migration docs:
+  1. **PocketBase refuses to change an existing collection's `type` in
+     place** ("Collection type cannot be changed"). The migration instead
+     captures the collection's existing `id`, temporarily drops the
+     `player_id` relation field from `programs`/`blocks` (PocketBase won't
+     delete a collection with live relation references), deletes and
+     recreates `players` as `type: 'auth'` **with the same id** (so the
+     relation fields' stored `collectionId` stays valid), then re-adds
+     `player_id` on `programs`/`blocks` pointing at it. `down()` mirrors
+     this to restore the original `base` shape from 001. Verified with a
+     real `migrate down 1` → `migrate up` round trip on a scratch copy of
+     `pb_data` before touching the real one.
+  2. **Auth-collection creates require `password` + `passwordConfirm`
+     regardless of the `password` field's own `required` flag.** Open mode
+     never asks students for a password (design.md section 7) — confirmed
+     empirically that setting `required: false` on the field alone doesn't
+     help; a public create with neither field present is rejected outright.
+     Worked around in `pb_hooks/players.pb.js` (below), not in the schema.
+  - `display_name` also drops `required: true` from 001. Stage 5.5's
+    account-provisioning flow (upload student emails → generate passwords →
+    create accounts) only has email + password at creation time; the
+    student picks a display name on first login. Confirmed empirically that
+    provisioning a player with only email + password fails validation
+    otherwise, which would make Stage 5.5 impossible to implement as
+    designed.
+  - `createRule`/`listRule`/`viewRule`/`updateRule` on `players` and
+    `createRule` on `programs` branch on `world_id.auth_mode` (a
+    relation-following filter): open mode is fully public — matches design.md's
+    explicit "students could upload under someone else's email, that's
+    acceptable" risk acceptance; accounts mode requires
+    `@request.auth.id = id` / `= player_id`. `programs.listRule`/`viewRule`
+    are fully public per design.md's "turtle programs are not sensitive
+    data." `worlds.listRule`/`viewRule` are now public too, so a client with
+    no session yet can discover the world and its `auth_mode` before anyone
+    logs in.
+- `server/pb_hooks/players.pb.js` (new) — `onRecordCreateRequest` hook that
+  auto-fills `password`/`passwordConfirm` with a random string when the
+  client didn't supply one (open-mode signups never do), defaults
+  `turtle_facing` to `'north'` when absent, and forces
+  `emailVisibility: true`. That last one fixed a real bug caught during
+  verification: PocketBase auth collections hide `email` from **filters**,
+  not just API responses, when `emailVisibility` is false — an anonymous
+  `players.getFirstListItem('email = ... && world_id = ...')` returned 404
+  for a row that plainly had that email, even though an unfiltered list
+  returned it. The open-mode browser login flow depends on looking players
+  up by email with no auth token, so this had to be forced on.
+- `server/pb_hooks/upload.pb.js` (new) — a custom `POST /upload` route for
+  the Java client (`java-client/KnoxelUploader.java`), which already POSTs
+  to `{serverUrl}/upload` with `X-Email`/`X-Password`/`X-Version` headers
+  and a flat JSON body. Left that wire format alone rather than moving the
+  Java client to POST `/api/collections/programs/records` as design.md
+  section 7 literally describes, because that endpoint requires a
+  `player_id` the Java client has no way to obtain on its own — creating a
+  `programs` record needs one. This route does the lookup instead: in open
+  mode it finds-or-creates the player by email (defaulting `display_name`
+  to the email's local part, since the Java payload has no name field —
+  students who also use the browser can set a real one there); in accounts
+  mode it validates the password against the stored hash via
+  `record.validatePassword()` and rejects with 401 on mismatch. "Active
+  world" is picked as the most recently created `worlds` row — see **NEEDS
+  JAIME** below.
+- `server/pb_hooks/programs.pb.js` — changed the existing instruction/thread
+  counting hook from `onRecordCreateRequest` to `onRecordCreate`. Caught by
+  testing the `/upload` route end to end: `onRecordCreateRequest` only fires
+  for the standard REST create endpoint, not for records saved
+  programmatically via `$app.save()` from another hook (which is how
+  `upload.pb.js` creates program records) — those were silently getting
+  `instruction_count`/`thread_count` of 0. `onRecordCreate` is model-level
+  and fires for both.
+- `client/src/lib/pocketbase.ts` (new) — the PocketBase client singleton.
+  `POCKETBASE_ENABLED` is `Boolean(VITE_POCKETBASE_URL)`, matching the
+  existing comment in `vite-env.d.ts` ("unset/empty = solo mode").
+  `fetchActiveWorld()` — see **NEEDS JAIME**.
+- `client/src/hooks/usePocketbase.ts` (new) — session state. Accounts-mode
+  sessions are ordinary PocketBase auth tokens, restored automatically by
+  the SDK's own localStorage-backed auth store. Open mode has no password
+  and therefore no token, so its session (which player id, in which world)
+  lives in a small separate `knoxel_open_session` localStorage entry.
+  `loginOpen()` finds-or-creates a player by `email && world_id` (updating
+  `display_name` if it changed); `loginAccounts()` calls
+  `authWithPassword`; `updateDisplayName()` patches the record after
+  accounts-mode first login (see below).
+- `client/src/components/Login.tsx` (new) — full-screen gate shown before a
+  player is identified. Renders the open-mode (display name + email) or
+  accounts-mode (email + password) form based on `world.auth_mode`, or a
+  display-name-only prompt when an accounts-mode player has just
+  authenticated but has no name yet (Stage 5.5 provisioning only sets
+  email + password).
+- `client/src/components/MyPrograms.tsx` (new) — lists the logged-in
+  player's previously uploaded programs (Stage 4 verify step: "student ...
+  can see program list"), loadable back into the interpreter via the
+  existing `parsePayload()`.
+- `client/src/App.tsx` — gates the app behind `<Login>` when
+  `POCKETBASE_ENABLED` and no player is set (or a display name is still
+  needed); passes an identity/"switch player" block into `Panel`'s `header`
+  slot and `MyPrograms` into its `children` slot — both slots already
+  existed, put there by an earlier stage in anticipation of this.
+- `client/src/index.css` — `.login-screen`/`.login-card`/`.login-error`/
+  `.identity` styles, reusing existing color variables and `label.field`/
+  `.button` conventions rather than introducing new ones.
+- `scripts/dev.sh` — exports `VITE_POCKETBASE_URL=/` before `npm run dev` so
+  local dev has the login/auth UI enabled by default (relative `/` works
+  because the Vite proxy forwards `/api` to PocketBase, same as production).
+- Verified end-to-end against a real, running PocketBase 0.39.10 instance
+  (migrations applied for real, not just read back): open-mode signup with
+  no password, duplicate-email login reusing the same player and renaming
+  it, accounts-mode provisioning by a superuser + `authWithPassword` login +
+  first-login display-name prompt, program upload and listing in both
+  modes, the `/upload` route matching the exact Java client contract
+  (including a repeat call reusing the same player, not duplicating it),
+  and rejection of unauthenticated program creation in an accounts-mode
+  world. All test worlds/players/programs and the temporary superuser
+  account were deleted from the real `server/pb_data/` afterward — it's
+  gitignored and was local verification scaffolding only, same as Stage 3.
+  `npx tsc --noEmit` and `npm run build` both pass on the client.
+- design.md sections affected: none — this implements section 7
+  (Authentication and Identity) as specified, plus the parts of section 6
+  (`players` becoming an auth collection, rule strings) that section 7
+  requires but doesn't spell out at the schema level.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Three things flagged rather than silently decided:
+1. **No CLI world-selection wrapper exists yet.** Design.md section 8
+   describes one (`scripts/knoxel-server.js`, env var handoff of the active
+   world id) but no build stage in CLAUDE.md currently owns writing it —
+   Stage 3 only built migrations/hooks, and Stage 4 (this one) needs to know
+   "the" active world to attach players/programs to. Conservative stand-in
+   used in both `client/src/lib/pocketbase.ts` (`fetchActiveWorld`) and
+   `server/pb_hooks/upload.pb.js`: whichever `worlds` row was created most
+   recently. This works fine as long as exactly one world is "current" at a
+   time, which matches how the tool is actually used, but a server with
+   multiple old worlds lying around will always route new signups/uploads
+   to the newest one. Worth revisiting when the CLI wrapper gets built —
+   ideally it hands the client an explicit world id instead of relying on
+   recency.
+2. **`players` is now an auth collection, converted from `base` via a
+   drop-and-recreate migration.** This was empirically necessary (see
+   Changes above) and is safe today because no real student data exists in
+   any deployed `pb_data` yet — but flagging it because "drop and recreate a
+   collection with the same id" is an unusual migration shape, and it's
+   worth knowing about before any real deployment happens on top of it.
+3. **`java-client/KnoxelUploader.java`'s wire format was left unchanged.**
+   Design.md section 7 literally says the Java client should POST to
+   `/api/collections/programs/records`, but that can't work directly — see
+   Changes above for why. Built a custom `/upload` route that adapts the
+   existing (already-working) contract instead of changing the Java side.
+   If you'd rather the Java client itself change to call the standard
+   PocketBase REST API directly (doing its own find-or-create-player round
+   trip), that's a reasonable alternative — say so and I'll switch it.

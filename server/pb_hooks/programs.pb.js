@@ -18,8 +18,16 @@
  * the one that hands back the actual JSON text, confirmed by inspecting a
  * live hook invocation. `unmarshalJSONField()` exists but does not populate
  * a plain JS object passed to it from this JSVM, so it's not usable here.
+ *
+ * Uses the model-level `onRecordCreate` rather than `onRecordCreateRequest`
+ * so this runs for every program record however it's created — both the
+ * standard REST create endpoint (browser login flow) and the
+ * `routerAdd`-based `/upload` route in upload.pb.js (Java client), which
+ * saves records directly via `$app.save()` and never touches the request
+ * hook chain. Confirmed empirically: with `onRecordCreateRequest`, programs
+ * created through `/upload` silently got instruction_count/thread_count 0.
  */
-onRecordCreateRequest((e) => {
+onRecordCreate((e) => {
   let payload = null
   try {
     payload = JSON.parse(e.record.getString('json_content'))

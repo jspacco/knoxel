@@ -8,8 +8,12 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { World } from './components/World'
 import { Panel } from './components/Panel'
 import { ProgramLoader } from './components/ProgramLoader'
+import { Login } from './components/Login'
+import { MyPrograms } from './components/MyPrograms'
 import { useWorld } from './hooks/useWorld'
 import { useTurtle } from './hooks/useTurtle'
+import { usePocketbase } from './hooks/usePocketbase'
+import { POCKETBASE_ENABLED } from './lib/pocketbase'
 import type { ParsedProgram, Vec3 } from './lib/interpreter'
 import { MIN_Y } from './lib/interpreter'
 
@@ -22,6 +26,7 @@ export default function App() {
   const [messages, setMessages] = useState<string[]>([])
 
   const turtle = useTurtle({ world })
+  const pb = usePocketbase()
 
   const pushMessage = useCallback((message: string) => {
     setMessages((previous) => [...previous.slice(-19), message])
@@ -71,8 +76,23 @@ export default function App() {
     turtle.clearLog()
   }, [turtle])
 
+  const needsDisplayName = POCKETBASE_ENABLED && Boolean(pb.player) && !pb.player?.display_name
+  const showLogin = POCKETBASE_ENABLED && (!pb.player || needsDisplayName)
+
   return (
     <div className="app">
+      {showLogin && (
+        <Login
+          world={pb.world}
+          worldLoading={pb.worldLoading}
+          worldError={pb.worldError}
+          onLoginOpen={pb.loginOpen}
+          onLoginAccounts={pb.loginAccounts}
+          needsDisplayName={needsDisplayName}
+          onSetDisplayName={pb.updateDisplayName}
+        />
+      )}
+
       <World
         canvasRef={canvasRef}
         atlasError={atlasError}
@@ -104,7 +124,19 @@ export default function App() {
         onSpawnAtCamera={handleSpawnAtCamera}
         log={combinedLog}
         onClearLog={clearLog}
+        header={
+          pb.player && (
+            <div className="identity">
+              <span className="identity-name">{pb.player.display_name}</span>
+              <button type="button" className="link-button" onClick={pb.logout}>
+                switch player
+              </button>
+            </div>
+          )
+        }
       >
+        {pb.player && <MyPrograms player={pb.player} onLoaded={handleLoaded} onError={pushMessage} />}
+
         <ProgramLoader
           programs={programs}
           selectedIndex={selectedIndex}

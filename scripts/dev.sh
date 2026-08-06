@@ -25,7 +25,7 @@ trap cleanup EXIT INT TERM
 (cd "$SERVER_DIR" && ./pocketbase serve) &
 PIDS+=($!)
 
-(cd "$CLIENT_DIR" && npm run dev) &
+(cd "$CLIENT_DIR" && VITE_POCKETBASE_URL=/ npm run dev) &
 PIDS+=($!)
 
 wait
