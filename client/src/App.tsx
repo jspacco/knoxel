@@ -79,8 +79,8 @@ export default function App() {
         loading={!world}
         hint={
           cameraMode === 'first-person'
-            ? 'WASD fly · mouse look · Space/Shift up/down · F or Esc for orbit'
-            : 'Left-drag to orbit · right-drag to pan · scroll to zoom · F for first-person'
+            ? 'WASD fly · mouse look · Space/Shift up/down · Esc for orbit'
+            : 'Left-drag to orbit · right-drag to pan · scroll to zoom · click to enter first-person'
         }
         showPointerLockPrompt={cameraMode === 'first-person' && !pointerLocked}
       />
@@ -95,6 +95,8 @@ export default function App() {
         onReset={turtle.reset}
         ticksPerSecond={turtle.ticksPerSecond}
         onTicksPerSecondChange={turtle.setTicksPerSecond}
+        followEnabled={turtle.followEnabled}
+        onFollowEnabledChange={turtle.setFollowEnabled}
         transform={turtle.transform}
         threads={turtle.threads}
         tick={turtle.tick}

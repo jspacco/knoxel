@@ -29,7 +29,8 @@ export type RunState = 'idle' | 'running' | 'paused' | 'done'
 /** Minecraft's tick rate, and the reference speed for Knoxel. */
 export const DEFAULT_TICKS_PER_SECOND = 20
 export const MIN_TICKS_PER_SECOND = 1
-export const MAX_TICKS_PER_SECOND = 100
+/** 60 is a reasonable ceiling — faster than this is too quick to watch anyway. */
+export const MAX_TICKS_PER_SECOND = 60
 
 /**
  * Above this rate animation is dropped entirely and blocks appear instantly.
@@ -79,6 +80,9 @@ export interface UseTurtleResult {
   runState: RunState
   ticksPerSecond: number
   setTicksPerSecond: (rate: number) => void
+  /** Opt-in orbit-camera auto-follow — off by default. */
+  followEnabled: boolean
+  setFollowEnabled: (enabled: boolean) => void
   /** Transform of the primary (first) turtle. */
   transform: TurtleTransform
   threads: ThreadProgress[]
@@ -109,6 +113,9 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
   const [threads, setThreads] = useState<ThreadProgress[]>([])
   const [tick, setTick] = useState(0)
   const [log, setLog] = useState<string[]>([])
+  // Opt-in — off by default so Run doesn't yank the camera to the turtle.
+  // See design.md section 13 / CLAUDE.md camera auto-follow feedback.
+  const [followEnabled, setFollowEnabledState] = useState(false)
 
   // Refs mirror the state the tick loop needs, so the loop never closes over
   // a stale render.
@@ -116,6 +123,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
   const transformRef = useRef<TurtleTransform>(transform)
   const rateRef = useRef(ticksPerSecond)
   const runStateRef = useRef<RunState>('idle')
+  const followEnabledRef = useRef(false)
   /** Bumped on every stop/reset so an in-flight loop knows to abandon. */
   const generationRef = useRef(0)
   const callbacksRef = useRef({ onBlockPlaced, onTurtleMoved, onRunEnded })
@@ -312,30 +320,37 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     [applyManual],
   )
 
-  // Arrow keys + Page Up/Down + Q/E, separate from the camera's WASD so both
-  // can be active at once (design.md section 13). nudge()/rotate() already
-  // no-op outside idle/done, so this listener doesn't need its own run-state
-  // guard.
+  // IJKL + U/O (with Arrow keys + Page Up/Down as an alternative), plus Q/E to
+  // rotate. Deliberately disjoint from the camera's WASD/Space/Shift so flying
+  // the camera and driving the turtle never fight over the same key (design.md
+  // section 13). nudge()/rotate() already no-op outside idle/done, so this
+  // listener doesn't need its own run-state guard.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
       switch (event.code) {
         case 'ArrowUp':
+        case 'KeyI':
           nudge('forward')
           break
         case 'ArrowDown':
+        case 'KeyK':
           nudge('back')
           break
         case 'ArrowLeft':
+        case 'KeyJ':
           nudge('left')
           break
         case 'ArrowRight':
+        case 'KeyL':
           nudge('right')
           break
         case 'PageUp':
+        case 'KeyU':
           nudge('up')
           break
         case 'PageDown':
+        case 'KeyO':
           nudge('down')
           break
         case 'KeyQ':
@@ -356,7 +371,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
   const reset = useCallback(() => {
     generationRef.current += 1
     world?.tweens.finishAll()
-    world?.resetAutoFollow()
+    world?.setAutoFollow(followEnabledRef.current)
     setRunStateBoth('idle')
     const single = createTurtleState([], SPAWN_POSITION, SPAWN_FACING)
     statesRef.current = [single]
@@ -375,6 +390,15 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     rateRef.current = clamped
     setTicksPerSecondState(clamped)
   }, [])
+
+  const setFollowEnabled = useCallback(
+    (enabled: boolean) => {
+      followEnabledRef.current = enabled
+      setFollowEnabledState(enabled)
+      world?.setAutoFollow(enabled)
+    },
+    [world],
+  )
 
   const runLoop = useCallback(
     async (generation: number) => {
@@ -461,7 +485,7 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
       generationRef.current += 1
       const generation = generationRef.current
       world.tweens.finishAll()
-      world.resetAutoFollow()
+      world.setAutoFollow(followEnabledRef.current)
 
       const origin = { ...transformRef.current.position }
       const facing = transformRef.current.facing
@@ -520,6 +544,8 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     runState,
     ticksPerSecond,
     setTicksPerSecond,
+    followEnabled,
+    setFollowEnabled,
     transform,
     threads,
     tick,

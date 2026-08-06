@@ -270,3 +270,77 @@ Stage 1.5 still wants a manual check in a real browser tab. Next unblocked
 stage is Stage 3 (PocketBase schema) — that's a server/deployment stage
 rather than a client one, so it's a bigger scope change; let me know if
 you'd like me to continue straight into it or pause here.
+
+## 2026-08-05 — Camera/turtle-control polish: ground collision, IJKL keys, click-to-capture, opt-in follow, 60-tick cap
+
+**Intent:** Jaime tried the Stage 1.5/2 camera and turtle controls and found
+five rough edges: the first-person camera could fly through the ground, the
+turtle's control scheme wasn't as natural as it could be with the camera also
+using the keyboard, first-person mode needed a dedicated F press before a
+click would capture the mouse, auto-follow snapping the camera to the turtle
+on every Run click was disorienting, and the speed slider went absurdly far
+past the point of being watchable.
+
+**Prompt:** "add the following features: The changes — Ground collision for
+camera: Camera Y position must never go below ground level... Turtle
+movement keys: IJKL for forward/back/left/right strafe, U/O for up/down...
+Click to capture focus, not F... Camera stays put when running a program...
+Tick rate slider 1-60..."
+
+**Changes:**
+- Ground collision (`hooks/useWorld.ts`): added `CAMERA_MIN_Y = GROUND_Y +
+  0.5` and a `clampCameraToGround()` call at the end of every render-loop
+  frame, after both the orbit-controls update and the first-person fly
+  update. Applies in both camera modes, not just first-person-with-Shift.
+- Turtle keys (`hooks/useTurtle.ts`): the idle-turtle keydown handler now
+  accepts `KeyI/KeyK/KeyJ/KeyL` (forward/back/left/right) and `KeyU/KeyO`
+  (up/down) as equivalents to the existing Arrow keys and Page Up/Down — kept
+  both rather than replacing, since the prompt said arrows were "also fine."
+  Q/E rotate was left as-is.
+- Click-to-capture (`hooks/useWorld.ts`): `handleCanvasClick` now switches to
+  first-person mode itself (`setCameraMode('first-person')`) before
+  requesting pointer lock, instead of only requesting lock when already in
+  first-person. F is kept as an alternative toggle, per the prompt's "or keep
+  F as an alternative."
+- Opt-in auto-follow (`hooks/useWorld.ts`, `hooks/useTurtle.ts`,
+  `components/Panel.tsx`, `App.tsx`): `WorldScene.autoFollowEnabled` now
+  defaults to `false` instead of being force-reset to `true` on every
+  `run()`/`reset()`. Replaced the old `resetAutoFollow()` method with
+  `setAutoFollow(enabled)`. Added a `followEnabled`/`setFollowEnabled` pair to
+  `useTurtle`, a "Follow turtle with camera" checkbox in the Panel's Run
+  section, and wired it through `App.tsx`. `run()`/`reset()` now apply
+  whatever the checkbox currently says instead of forcing follow on.
+- Tick rate slider (`hooks/useTurtle.ts`): `MAX_TICKS_PER_SECOND` 100 → 60.
+  The slider's `max` attribute in `Panel.tsx` reads this constant, so no
+  separate change was needed there.
+- Updated the `Panel.tsx` controls-help list and the `App.tsx` viewport hint
+  strings to describe the new click-to-capture behavior and IJKL/U/O keys.
+  Added a `.checkbox-label` style to `index.css` for the new toggle.
+- Verified in a real (headless Chromium via Playwright, driven interactively)
+  browser session against the Vite dev server: `#speed` slider's `max` reads
+  60; pressing I then U from idle moved the turtle from `(0,1,0)` to
+  `(0,2,-1)` (forward + up); clicking the canvas from orbit mode switched the
+  hint text straight to the first-person line and showed the pointer-lock
+  prompt without an intervening F press; holding Shift for 3 seconds in
+  first-person left the view still full of nearby grass with only a sliver of
+  sky at the horizon (evidence the camera stayed pinned near ground level
+  instead of dropping through it); running the `flag` sample after manually
+  orbiting to a deliberately off-default framing showed an identical camera
+  framing before, immediately after clicking Run, and 2 seconds into the run
+  (tick 43, 24 blocks placed) — the camera never jumped to the turtle.
+  `npx tsc --noEmit` and `npm run build` both clean.
+  Pointer Lock's actual OS-level mouse capture still can't be verified
+  headless (`WrongDocumentError` from `requestPointerLock()` in this
+  environment) — same caveat as the last entry, needs a manual check in a
+  real tab.
+- design.md sections affected: none — these are UX refinements to the camera
+  rig and tick system already specified in sections 11/13; no architecture
+  changed.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None — all five requested changes are conservative,
+non-architectural fixes directly implied by your descriptions. One judgment
+call: for opt-in auto-follow, I went with the checkbox option (kept the
+feature, made it opt-in) rather than deleting `followTurtle`/`frameThreads`
+entirely, since the prompt offered both and the checkbox preserves useful
+functionality for anyone who does want the camera to track the turtle.

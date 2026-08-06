@@ -27,6 +27,9 @@ export interface PanelProps {
   ticksPerSecond: number
   onTicksPerSecondChange: (rate: number) => void
 
+  followEnabled: boolean
+  onFollowEnabledChange: (enabled: boolean) => void
+
   transform: TurtleTransform
   threads: ThreadProgress[]
   tick: number
@@ -54,6 +57,8 @@ export function Panel(props: PanelProps) {
     onReset,
     ticksPerSecond,
     onTicksPerSecondChange,
+    followEnabled,
+    onFollowEnabledChange,
     transform,
     threads,
     tick,
@@ -127,6 +132,15 @@ export function Panel(props: PanelProps) {
             onChange={(event) => onTicksPerSecondChange(Number(event.target.value))}
           />
           {!smooth && <p className="muted small">Above 20 ticks/s animation is skipped — blocks appear instantly.</p>}
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={followEnabled}
+              onChange={(event) => onFollowEnabledChange(event.target.checked)}
+            />
+            Follow turtle with camera
+          </label>
         </section>
 
         <section className="panel-section">
@@ -166,15 +180,17 @@ export function Panel(props: PanelProps) {
           <details className="controls-help">
             <summary>Controls</summary>
             <dl className="keys">
+              <dt>Click canvas</dt>
+              <dd>capture mouse, enter first-person</dd>
               <dt>WASD / Space / Shift</dt>
               <dd>fly the camera</dd>
-              <dt>F</dt>
-              <dd>toggle first-person / orbit</dd>
               <dt>Esc</dt>
               <dd>release the mouse</dd>
-              <dt>Arrow keys</dt>
+              <dt>F</dt>
+              <dd>toggle first-person / orbit</dd>
+              <dt>IJKL (or arrow keys)</dt>
               <dd>move the turtle</dd>
-              <dt>Page Up / Down</dt>
+              <dt>U / O (or Page Up / Down)</dt>
               <dd>turtle up / down</dd>
               <dt>Q / E</dt>
               <dd>rotate the turtle</dd>

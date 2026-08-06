@@ -309,6 +309,20 @@ input[type='range'] {
   accent-color: var(--accent);
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.checkbox-label input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
 input[type='text'],
 input[type='email'],
 input[type='password'],

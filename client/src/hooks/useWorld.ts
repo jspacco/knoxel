@@ -35,6 +35,8 @@ export type CameraMode = 'orbit' | 'first-person'
 
 const FP_MOVE_UNITS_PER_SECOND = 8
 const FP_MOUSE_RADIANS_PER_PIXEL = 0.0025
+/** Camera may never sink below the ground plane, in any camera mode. */
+const CAMERA_MIN_Y = GROUND_Y + 0.5
 /** Clamp to +-89 degrees so looking straight up/down never flips the view. */
 const PITCH_LIMIT = (89 * Math.PI) / 180
 const FP_MOVE_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'])
@@ -194,11 +196,14 @@ export class WorldScene {
   private readonly modeListeners = new Set<(mode: CameraMode, locked: boolean) => void>()
 
   /**
-   * Orbit mode auto-follows the running turtle until the student manually
-   * orbits/pans/zooms — see design.md section 13. Only meaningful in orbit
-   * mode; first-person is always fully manual.
+   * Opt-in: while enabled, orbit mode follows the running turtle until the
+   * student manually orbits/pans/zooms, at which point it turns itself back
+   * off. Defaults to off — jumping the camera to the turtle on every Run
+   * click was disorienting, so the camera now only moves when the student
+   * moves it or explicitly turns following on. Only meaningful in orbit mode;
+   * first-person is always fully manual.
    */
-  private autoFollowEnabled = true
+  private autoFollowEnabled = false
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -362,11 +367,15 @@ export class WorldScene {
     this.moveKeys.delete(event.code)
   }
 
-  /** Pointer Lock requires a user gesture — this is that gesture. */
+  /**
+   * Pointer Lock requires a user gesture — this is that gesture. Clicking the
+   * canvas always captures the mouse and enters first-person, matching the
+   * convention of every other browser game. F remains as an alternative way
+   * to toggle modes without touching the mouse.
+   */
   private readonly handleCanvasClick = (): void => {
-    if (this.cameraModeValue === 'first-person' && document.pointerLockElement !== this.canvas) {
-      this.canvas.requestPointerLock()
-    }
+    if (this.cameraModeValue !== 'first-person') this.setCameraMode('first-person')
+    if (document.pointerLockElement !== this.canvas) this.canvas.requestPointerLock()
   }
 
   private readonly handlePointerLockChange = (): void => {
@@ -408,6 +417,12 @@ export class WorldScene {
     this.camera.position.addScaledVector(move, FP_MOVE_UNITS_PER_SECOND * deltaSeconds)
   }
 
+  /** No collision detection anywhere else, but the ground is the one surface
+   * the camera may never pass through — clamp after every camera update. */
+  private clampCameraToGround(): void {
+    if (this.camera.position.y < CAMERA_MIN_Y) this.camera.position.y = CAMERA_MIN_Y
+  }
+
   /** Point the orbit camera at a world position, keeping the current distance. */
   focusOn(position: Vec3): void {
     if (!this.orbit) return
@@ -437,9 +452,13 @@ export class WorldScene {
     this.orbit.update()
   }
 
-  /** Re-arm auto-follow, e.g. when a fresh program run starts. */
-  resetAutoFollow(): void {
-    this.autoFollowEnabled = true
+  /** Turn following on/off — driven by the "Follow turtle" panel toggle. */
+  setAutoFollow(enabled: boolean): void {
+    this.autoFollowEnabled = enabled
+  }
+
+  get autoFollow(): boolean {
+    return this.autoFollowEnabled
   }
 
   /**
@@ -577,6 +596,7 @@ export class WorldScene {
       } else {
         this.updateFirstPersonMovement(deltaMs / 1000)
       }
+      this.clampCameraToGround()
 
       this.renderer.render(this.scene, this.camera)
       this.animationFrame = requestAnimationFrame(loop)
