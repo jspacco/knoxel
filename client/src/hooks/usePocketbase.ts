@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { ClientResponseError } from 'pocketbase'
-import { fetchActiveWorld, pb, type PlayerRecord, type WorldRecord } from '../lib/pocketbase'
+import { POCKETBASE_ENABLED, fetchActiveWorld, pb, type PlayerRecord, type WorldRecord } from '../lib/pocketbase'
 
 const OPEN_SESSION_KEY = 'knoxel_open_session'
 
@@ -40,6 +40,13 @@ export function usePocketbase() {
   const [playerLoading, setPlayerLoading] = useState(true)
 
   useEffect(() => {
+    // Tier 1 (static GitHub Pages): no PocketBase server exists at all, so
+    // don't even try — every load would otherwise fire a doomed request at
+    // a same-origin /api that has nothing behind it. See design.md section 3.
+    if (!POCKETBASE_ENABLED) {
+      setWorldLoading(false)
+      return
+    }
     let cancelled = false
     setWorldLoading(true)
     fetchActiveWorld()

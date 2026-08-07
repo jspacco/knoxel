@@ -1,8 +1,28 @@
 # TODO
 
 * What this is and how it works
-* How to run jspacco.github.io/knoxel
 * How to install run your own shared server
+
+## Static tier (jspacco.github.io/knoxel)
+
+No server, no login. Students run their Java program, it POSTs to the
+Cloudflare Worker, the browser opens to `?id=<id>` and auto-runs. See
+`docs/student-guide.md` for the student-facing flow and the Worker's exact
+POST/GET contract.
+
+To build and publish:
+
+```bash
+./scripts/build-static.sh   # → client/dist/
+```
+
+Publish the contents of `client/dist/` to the repo's GitHub Pages source
+(project page, so the Vite base path is `/knoxel/` — override with
+`VITE_BASE` if that ever changes). Override `VITE_WORKER_URL` if deploying
+against a different Worker than `knoxel-worker.jspacco.workers.dev`.
+
+The Worker itself (`worker/`) only needs `npx wrangler deploy` once; it's not
+part of this build step. See `design/design.md` section 3.
 
 First run:
 1. Binary starts PocketBase

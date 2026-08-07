@@ -4,7 +4,7 @@
  * Stage 1: solo visualiser. Everything happens in the browser — no server.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { World } from './components/World'
 import { Panel } from './components/Panel'
 import { ProgramLoader } from './components/ProgramLoader'
@@ -13,6 +13,7 @@ import { MyPrograms } from './components/MyPrograms'
 import { useWorld } from './hooks/useWorld'
 import { useTurtle } from './hooks/useTurtle'
 import { usePocketbase } from './hooks/usePocketbase'
+import { useSharedLink } from './hooks/useSharedLink'
 import { POCKETBASE_ENABLED } from './lib/pocketbase'
 import type { ParsedProgram, Vec3 } from './lib/interpreter'
 import { MIN_Y } from './lib/interpreter'
@@ -51,6 +52,24 @@ export default function App() {
     if (!selected) return
     turtle.run(selected)
   }, [selected, turtle])
+
+  // Tier 1 (static GitHub Pages): a `?id=` link from the Java client's
+  // Cloudflare Worker upload should fetch and run automatically, with no
+  // login or drag-and-drop. See design.md section 3/13.
+  const shared = useSharedLink(handleLoaded)
+
+  useEffect(() => {
+    if (shared.status === 'loading') pushMessage('Fetching shared program…')
+    if (shared.status === 'error' && shared.errorMessage) pushMessage(shared.errorMessage)
+  }, [shared.status, shared.errorMessage, pushMessage])
+
+  const sharedAutoRunRef = useRef(false)
+  useEffect(() => {
+    if (sharedAutoRunRef.current) return
+    if (shared.status !== 'loaded' || !world || !selected) return
+    sharedAutoRunRef.current = true
+    turtle.run(selected)
+  }, [shared.status, world, selected, turtle])
 
   /**
    * Drop the turtle where the camera is looking from, snapped to the block

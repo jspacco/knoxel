@@ -686,3 +686,99 @@ never prompted for a display name and username. please implement this."
   the client with the right configuration instead of leaving that step
   manual.
 - Git commit: (see next commit)
+
+## 2026-08-07 — Finish the static tier (Tier 1): `?id=` landing flow, build-static.sh, Worker contract docs
+
+**Intent:** Jaime asked to finish the static visualizer that will live at
+`jspacco.github.io/knoxel` and sends JSON to Cloudflare — Tier 1 from
+design.md section 3. The Worker (`worker/src/index.js`) and
+`VITE_WORKER_URL`/`VITE_BASE` plumbing in `vite-env.d.ts`/`vite.config.ts`
+already existed from an earlier session, but nothing in the client actually
+read `?id=` from the URL, fetched from the Worker, or auto-ran the result —
+the landing-page behavior design.md section 13 describes ("browser fetches
+JSON from Worker, auto-runs the program immediately") didn't exist yet.
+`scripts/build-static.sh`, referenced by both design.md and the existing
+`vite.config.ts` comment, also didn't exist.
+
+**Prompt:** "read design/design.md and design/changes.md, and finish the
+static visualizer that will live at jspacco.github.io/knoxel and will send
+the JSON to cloudflare."
+
+**Changes:**
+- `client/src/hooks/useSharedLink.ts` (new) — on mount, reads `?id=` from
+  the URL once, strips it immediately via `history.replaceState` (so a
+  reload shows the ordinary drag-and-drop landing page rather than
+  re-fetching or re-failing on a link that may have since expired), then
+  `GET`s `${VITE_WORKER_URL}/?id=<id>`, parses the response with the
+  existing `parseProgramFile`, and hands the result to the same `onLoaded`
+  callback a drag-and-drop file uses. A `404` produces the exact message
+  design.md section 13 specifies: "This link has expired. Re-run your Java
+  program to generate a new link, or drag your JSON file here." Other
+  fetch/parse failures get a fallback message pointing back at
+  drag-and-drop. No `VITE_WORKER_URL` configured (e.g. a plain dev build)
+  produces its own message rather than silently doing nothing.
+- `client/src/App.tsx` — wires `useSharedLink` in: pushes "Fetching shared
+  program…" / the error message into the existing message log (same log
+  `ProgramLoader`'s own errors already use), and a ref-guarded effect
+  auto-runs the shared program from the turtle's spawn position the moment
+  both the loaded program and the Three.js scene (`world`) are ready — this
+  is the "no login, no drag-and-drop, runs immediately" flow design.md
+  section 13 describes for the static tier. The ref guard means only the
+  shared-link program auto-runs; loading a second sample afterward behaves
+  like today (select, then Run).
+- `client/src/hooks/usePocketbase.ts` — real bug caught while verifying the
+  above with a headless browser session: this hook's world-fetch effect ran
+  unconditionally, even when `POCKETBASE_ENABLED` is false (i.e. every
+  static-tier / solo-mode load). Tier 1 has no PocketBase at all (design.md
+  section 3: "no server to run... no login required"), so every page load
+  was firing a doomed request against a same-origin `/api` with nothing
+  behind it (observed as 502s from the Vite dev proxy during verification —
+  present on a plain `http://localhost:5173/` load too, not specific to the
+  new `?id=` path, but exactly the kind of noise Tier 1 is supposed to
+  avoid). Added an early return when `!POCKETBASE_ENABLED`.
+- `scripts/build-static.sh` (new) — builds the client with `VITE_BASE`
+  defaulted to `/knoxel/` (GitHub Pages project-page path) and
+  `VITE_WORKER_URL` defaulted to the one deployed Worker
+  (`knoxel-worker.jspacco.workers.dev`, per CLAUDE.md's "Key facts"),
+  `VITE_POCKETBASE_URL` intentionally left unset. Both defaults are
+  override-able via the same-named env var. Ran it for real — confirmed the
+  built `dist/index.html` and JS bundle reference `/knoxel/...` asset paths
+  and the Worker URL is baked into the bundle correctly.
+- `docs/student-guide.md` (new) — design.md section 19's open question
+  explicitly assigns this to Weirdo: document the Worker's expected
+  POST/response shape so a future `KnoxelUploader.openInBrowser()` (still
+  Jaime's to write, per that same section) has an exact contract to build
+  against. Covers the student-facing flow, the offline/drag-and-drop
+  fallback, and the Worker's exact request/response shapes for both
+  `POST /` (upload) and `GET /?id=` (fetch), including its `400`/`404`
+  error bodies.
+- `README.md` — answered the existing "How to run jspacco.github.io/knoxel"
+  TODO bullet with a short section pointing at `build-static.sh` and
+  `docs/student-guide.md`; left the rest of Jaime's draft/TODO structure
+  alone.
+- Verified end-to-end with a headless Playwright session against the Vite
+  dev server and a local mock Worker (CORS headers included, matching the
+  real Worker's `Access-Control-Allow-Origin` behavior in
+  `worker/src/index.js`): `?id=<valid>` auto-loaded the program into the
+  list, auto-ran it with no click (log showed "Fetching shared program…" →
+  "Loaded 1 program from shared link (...)" → "Running ..." → "Program
+  finished after N ticks"), and the address bar no longer showed `?id=`
+  afterward; `?id=<missing>` produced the exact expired-link message in the
+  log and added nothing to the program list. No React warnings in either
+  case. `npx tsc --noEmit` clean throughout.
+- design.md sections affected: none — this implements section 3 (Tier 1)
+  and the static-tier parts of section 13 exactly as already specified.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Two things flagged rather than decided:
+1. **Actually publishing to GitHub Pages is still manual.** `build-static.sh`
+   produces `client/dist/`; I did not add a GitHub Actions workflow or push
+   anything to a Pages branch — deciding on/authorizing a CI pipeline that
+   auto-publishes felt like it should be your call, not mine, and doesn't
+   need to block anything (`docs/student-guide.md`/README explain the
+   command). Say the word if you want a workflow that deploys on push to
+   `main`.
+2. **`KnoxelUploader.openInBrowser()` still doesn't exist.** Same as the
+   last open question in design.md section 19 — that's your code to write.
+   `docs/student-guide.md` now has the exact contract (POST shape, response
+   shape, the URL to open) for it to target.
