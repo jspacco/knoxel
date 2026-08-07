@@ -611,3 +611,39 @@ stage 4" — confirmed continuing the same task after a session gap).
    If you'd rather the Java client itself change to call the standard
    PocketBase REST API directly (doing its own find-or-create-player round
    trip), that's a reasonable alternative — say so and I'll switch it.
+
+## 2026-08-07 — Rebind camera and turtle controls to WASD+QE / IJKL+UO+NM
+
+**Intent:** Jaime wanted the player/camera and turtle control schemes changed
+to a specific new layout: WASD forward/left/back/right for the camera, QE
+(plus the existing Space/Shift) for camera up/down, IJKL forward/left/back/
+right for the turtle, U/O for turtle rotate-left/rotate-right, and N/M for
+turtle down/up.
+
+**Prompt:** "change the controls so that WASD for the player/user is
+forward/left/back/right, QE are up and down for the player/user, and
+space/shift are also up/down. for the turtle, IJKL are forward/left/back/
+right, then UO are turnleft, turnright, and N is down and M is up."
+
+**Changes:**
+- `hooks/useWorld.ts`: added `KeyQ`/`KeyE` to `FP_MOVE_KEY_CODES` and to
+  `updateFirstPersonMovement()` as additional up/down inputs alongside the
+  existing Space/Shift — camera keys are now WASD + Q/E + Space/Shift.
+- `hooks/useTurtle.ts`: remapped the turtle's manual-move keydown handler.
+  `U`/`O` now call `rotate('left'/'right')` (previously up/down); `N`/`M`
+  (plus Page Down/Page Up as before) now call `nudge('down'/'up')`
+  (previously `Q`/`E` handled rotate, `U`/`O`/Page Up/Down handled up/down).
+  `I`/`J`/`K`/`L` and the Arrow-key equivalents for forward/left/back/right
+  are unchanged. The two key sets (camera vs. turtle) remain disjoint, per
+  design.md section 13's intent that both can be driven simultaneously
+  without conflict.
+- `components/Panel.tsx` and `App.tsx`: updated the in-app controls help
+  text and first-person hint overlay to match the new bindings.
+- **NEEDS JAIME:** design.md section 13's control tables (lines ~877-898)
+  still describe the old scheme (Page Up/Down for turtle up/down, Q/E for
+  turtle rotate, no Q/E on the camera) and are now stale. Per CLAUDE.md I
+  did not touch design.md — say the word and I'll update those two tables
+  to match what's implemented.
+- Verified with `npx tsc --noEmit` in `client/` — no type errors. Not
+  verified in a running browser this session (no dev server was started).
+- Git commit: (see next commit)

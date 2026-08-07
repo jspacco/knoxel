@@ -182,17 +182,19 @@ export function Panel(props: PanelProps) {
             <dl className="keys">
               <dt>Click canvas</dt>
               <dd>capture mouse, enter first-person</dd>
-              <dt>WASD / Space / Shift</dt>
+              <dt>WASD</dt>
               <dd>fly the camera</dd>
+              <dt>Q / E / Space / Shift</dt>
+              <dd>camera up / down</dd>
               <dt>Esc</dt>
               <dd>release the mouse</dd>
               <dt>F</dt>
               <dd>toggle first-person / orbit</dd>
               <dt>IJKL (or arrow keys)</dt>
               <dd>move the turtle</dd>
-              <dt>U / O (or Page Up / Down)</dt>
-              <dd>turtle up / down</dd>
-              <dt>Q / E</dt>
+              <dt>N / M (or Page Down / Up)</dt>
+              <dd>turtle down / up</dd>
+              <dt>U / O</dt>
               <dd>rotate the turtle</dd>
             </dl>
           </details>

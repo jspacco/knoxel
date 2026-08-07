@@ -99,7 +99,7 @@ export default function App() {
         loading={!world}
         hint={
           cameraMode === 'first-person'
-            ? 'WASD fly · mouse look · Space/Shift up/down · Esc for orbit'
+            ? 'WASD fly · mouse look · Q/E or Space/Shift up/down · Esc for orbit'
             : 'Left-drag to orbit · right-drag to pan · scroll to zoom · click to enter first-person'
         }
         showPointerLockPrompt={cameraMode === 'first-person' && !pointerLocked}

@@ -320,11 +320,12 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
     [applyManual],
   )
 
-  // IJKL + U/O (with Arrow keys + Page Up/Down as an alternative), plus Q/E to
-  // rotate. Deliberately disjoint from the camera's WASD/Space/Shift so flying
-  // the camera and driving the turtle never fight over the same key (design.md
-  // section 13). nudge()/rotate() already no-op outside idle/done, so this
-  // listener doesn't need its own run-state guard.
+  // IJKL to move (with Arrow keys as an alternative), U/O to rotate, N/M for
+  // down/up (with Page Down/Up as an alternative). Deliberately disjoint from
+  // the camera's WASD/Q/E/Space/Shift so flying the camera and driving the
+  // turtle never fight over the same key (design.md section 13). nudge()/
+  // rotate() already no-op outside idle/done, so this listener doesn't need
+  // its own run-state guard.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
@@ -346,17 +347,17 @@ export function useTurtle(options: UseTurtleOptions): UseTurtleResult {
           nudge('right')
           break
         case 'PageUp':
-        case 'KeyU':
+        case 'KeyM':
           nudge('up')
           break
         case 'PageDown':
-        case 'KeyO':
+        case 'KeyN':
           nudge('down')
           break
-        case 'KeyQ':
+        case 'KeyU':
           rotate('left')
           break
-        case 'KeyE':
+        case 'KeyO':
           rotate('right')
           break
         default:

@@ -39,7 +39,17 @@ const FP_MOUSE_RADIANS_PER_PIXEL = 0.0025
 const CAMERA_MIN_Y = GROUND_Y + 0.5
 /** Clamp to +-89 degrees so looking straight up/down never flips the view. */
 const PITCH_LIMIT = (89 * Math.PI) / 180
-const FP_MOVE_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'])
+const FP_MOVE_KEY_CODES = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'KeyQ',
+  'KeyE',
+  'Space',
+  'ShiftLeft',
+  'ShiftRight',
+])
 
 /** True when the event's target is a form control — F/WASD must not hijack typing. */
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -410,8 +420,8 @@ export class WorldScene {
     if (this.moveKeys.has('KeyD')) move.add(right)
     if (this.moveKeys.has('KeyA')) move.sub(right)
     if (move.lengthSq() > 0) move.normalize()
-    if (this.moveKeys.has('Space')) move.y += 1
-    if (this.moveKeys.has('ShiftLeft') || this.moveKeys.has('ShiftRight')) move.y -= 1
+    if (this.moveKeys.has('Space') || this.moveKeys.has('KeyQ')) move.y += 1
+    if (this.moveKeys.has('ShiftLeft') || this.moveKeys.has('ShiftRight') || this.moveKeys.has('KeyE')) move.y -= 1
     if (move.lengthSq() === 0) return
 
     this.camera.position.addScaledVector(move, FP_MOVE_UNITS_PER_SECOND * deltaSeconds)
