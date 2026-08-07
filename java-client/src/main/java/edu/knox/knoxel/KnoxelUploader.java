@@ -7,7 +7,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
-import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -29,6 +28,7 @@ import com.google.gson.JsonSerializer;
 public class KnoxelUploader
 {
     public static final int VERSION = 2;
+    @SuppressWarnings("unused")
     private static final Gson GSON;
     static {
         // NOTE: we could refactor everything out of the static initializer

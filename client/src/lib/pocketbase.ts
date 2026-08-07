@@ -53,8 +53,20 @@ export interface ProgramRecord {
  * endpoint) rather than relying on recency.
  */
 export async function fetchActiveWorld(): Promise<WorldRecord | null> {
-  const page = await pb.collection('worlds').getList<WorldRecord>(1, 1, {
-    sort: '-created_at',
-  })
-  return page.items[0] ?? null
+  try {
+    const world = await pb.collection('worlds').getFirstListItem<WorldRecord>(
+      'is_active = true'
+    )
+    return world
+  } catch {
+    // No active world set — fall back to most recently created
+    try {
+      const page = await pb.collection('worlds').getList<WorldRecord>(1, 1, {
+        sort: '-created_at',
+      })
+      return page.items[0] ?? null
+    } catch {
+      return null
+    }
+  }
 }
