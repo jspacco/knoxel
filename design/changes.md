@@ -647,3 +647,42 @@ right, then UO are turnleft, turnright, and N is down and M is up."
 - Verified with `npx tsc --noEmit` in `client/` — no type errors. Not
   verified in a running browser this session (no dev server was started).
 - Git commit: (see next commit)
+
+## 2026-08-07 — Fix open-mode login never prompting for display name/email
+
+**Intent:** Jaime reported that the login mechanism doesn't work for an open
+world — the app never prompts for a display name and email, so students
+can't identify themselves and no `players` record ever gets created.
+
+**Prompt:** "the login mechanism doesn't work for an open world. we are
+never prompted for a display name and username. please implement this."
+
+**Changes:**
+- Root cause: `client/src/lib/pocketbase.ts`'s `POCKETBASE_ENABLED` is
+  `Boolean(import.meta.env.VITE_POCKETBASE_URL)`, and `App.tsx` only ever
+  renders `<Login>` when `POCKETBASE_ENABLED` is true. `scripts/dev.sh` sets
+  `VITE_POCKETBASE_URL=/` when it spawns the client, but the newer
+  `scripts/knoxel-server.js` (an in-progress, not-yet-committed CLI wrapper
+  implementing design.md section 8's world-selection prompt) only started
+  PocketBase itself and then told the operator to separately run
+  `cd client && npm run dev` in another terminal — with no env var set. That
+  left the client in solo/static-tier mode, where the login screen never
+  renders and there's no server for it to talk to even if it did.
+- `scripts/knoxel-server.js`: after world selection, it now spawns the
+  client's `npm run dev` itself with `VITE_POCKETBASE_URL=/` in its
+  environment, wires its stdout/stderr into the wrapper's own logging, and
+  tears it down together with PocketBase on exit (`killAll()`) or if either
+  process dies. Removed the stale "run this yourself in another terminal"
+  instruction from the final banner since the wrapper now does it.
+- Verified end-to-end: ran `node scripts/knoxel-server.js` against the
+  existing local `pb_data`, confirmed via the dev server's transformed
+  module output that `import.meta.env.VITE_POCKETBASE_URL` is now `"/"`
+  (so `POCKETBASE_ENABLED` is `true`), and confirmed the Vite proxy reaches
+  PocketBase's `worlds` collection and returns the active open-mode world.
+  Did not click through the actual React login form in a browser this
+  session.
+- No design.md changes — section 8 already describes a CLI wrapper; this
+  just fixes the wrapper's own in-progress implementation to actually start
+  the client with the right configuration instead of leaving that step
+  manual.
+- Git commit: (see next commit)
