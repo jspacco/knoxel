@@ -2,7 +2,7 @@
 
 **Author:** Jaime Spacco  
 **Status:** Active  
-**Last updated:** July 2026
+**Last updated:** August 2026
 
 This document is the canonical design reference for Knoxel — a browser-based 3D voxel visualizer and multiplayer shared world for KnoxCraftMod turtle programs. It captures architecture decisions, schema, protocols, and deployment strategy. It should be amended rarely and deliberately. For ongoing changes, see `changes.md`.
 
@@ -34,7 +34,7 @@ There are three deployment tiers. All share the same React client codebase. The 
 
 ### Tier 1 — Static GitHub Pages + Cloudflare Worker
 
-**URL:** `knoxel.github.io` (or `jspacco.github.io/knoxel`)  
+**URL:** `jspacco.github.io/knoxel`  
 **Backend:** Cloudflare Worker (ephemeral mailbox, not a server)  
 **Auth:** none  
 **Multiplayer:** no — solo only  
@@ -42,7 +42,7 @@ There are three deployment tiers. All share the same React client codebase. The 
 Students run their Java program in VS Code. The Java library POSTs the JSON to a Cloudflare Worker, gets back a short ID, and opens the browser automatically:
 
 ```
-https://knoxel.github.io/?id=xk7r9m
+https://jspacco.github.io/knoxel/?id=xk7r9m
 ```
 
 The browser fetches the JSON from the Worker and runs the program locally. The Worker stores JSON for 24 hours then deletes it automatically. No server to run, no binary to distribute, no login required.
@@ -57,11 +57,11 @@ Three operations only:
 
 `GET /?id=xk7r9m2p` — browser fetches stored JSON by ID. Returns the JSON body or 404 if expired.
 
-`OPTIONS /` — CORS preflight. Required because `knoxel.github.io` and `workers.dev` are different origins.
+`OPTIONS /` — CORS preflight. Required because `jspacco.github.io` and `workers.dev` are different origins.
 
-CORS headers on all responses: `Access-Control-Allow-Origin: https://knoxel.github.io`.
+CORS headers on all responses: `Access-Control-Allow-Origin: https://jspacco.github.io`.
 
-KV namespace: `PROGRAMS`. TTL: 86400 seconds (24 hours). IDs are `crypto.randomUUID().slice(0, 8)` — short enough to fit in a URL, random enough to avoid collisions at classroom scale.
+KV namespace: `KNOXEL`. TTL: 86400 seconds (24 hours). IDs are `crypto.randomUUID().slice(0, 8)` — short enough to fit in a URL, random enough to avoid collisions at classroom scale.
 
 The Worker has no auth, no rate limiting, no logging of content. Anyone who guesses an ID can fetch that program JSON — acceptable for a classroom tool where program content is not sensitive.
 
@@ -128,7 +128,7 @@ scripts/build-static.sh  # GitHub Pages (Tier 1, no PocketBase URL)
 **TypeScript discipline:** All instruction types, turtle state, PocketBase record shapes, and interpreter interfaces must be explicitly typed. The `Instruction` type should be a discriminated union so switch statements are exhaustive.
 
 ### Server
-- **PocketBase** — single Go binary, SQLite, REST API, real-time subscriptions over WebSocket, tiered auth (none → basic email/password → optional Google OAuth, see section 7)
+- **PocketBase** — single Go binary, SQLite, REST API, real-time subscriptions over WebSocket, two auth modes (open email-only, or accounts with passwords — see section 7). No Google OAuth.
 - Schema defined in `server/pb_migrations/` as JS migration files
 - Optional server-side hooks in `server/pb_hooks/`
 - Serves static files from `server/pb_public/` at `/`
@@ -306,15 +306,20 @@ Student opens the browser and is prompted for two fields:
 
 No password. A `players` record is created with these two fields. Session stored in browser localStorage. Zero setup cost for faculty — students can connect immediately.
 
-For uploading from Java, students configure their email once:
+For uploading from Java, students set their email once in a static method:
 
 ```java
-KnoxCraft.setServer("http://knoxel.knox.edu");
-KnoxCraft.setEmail("jdoe@knox.edu");
-turtle.upload();
+String serverUrl = "http://hostname.edu:5678";
+String email = "student@knox.edu";
+String password = "";
+// terp is the actual instance of Terp or ParallelTerp
+KnoxelUploader.upload(serverUrl, 
+  terp, 
+  email, 
+  password);
 ```
 
-The Java library POSTs the program JSON plus the email to PocketBase. PocketBase stores it keyed by email. No password, no token.
+The Java library POSTs the program JSON plus the email to PocketBase. PocketBase stores it keyed by email. The password is sent but will be ignored by the server if the world is set to "open". We keep the password in there so the methods all have the same signature.
 
 Students could upload under someone else's email. That's acceptable — nothing destructive can happen (programs accumulate, blocks get placed, nothing can be deleted). If a student submits with a fake email and can't be identified, that's a them problem. The prompt language makes the purpose clear: "Enter your Knox email so your instructor can identify your submissions."
 
@@ -336,10 +341,14 @@ Faculty uploads a list of student emails before the assignment. The faculty pane
 - Java code includes email and password:
 
 ```java
-KnoxCraft.setServer("http://knoxel.knox.edu");
-KnoxCraft.setEmail("jdoe@knox.edu");
-KnoxCraft.setPassword("maple-river-22");
-turtle.upload();
+String serverUrl = "http://hostname.edu:5678";
+String email = "student@knox.edu";
+String password = "maple-river-22"; // faculty sent this to the student
+// terp is the actual instance of Terp or ParallelTerp
+KnoxelUploader.upload(serverUrl, 
+  terp, 
+  email, 
+  password);
 ```
 
 Uses PocketBase's built-in auth collection — no custom auth code needed. No external services, no OAuth.
@@ -504,97 +513,125 @@ Sortable by any column. Filterable by name/email. "Who hasn't uploaded yet" and 
 
 ## 10. JSON Program Format
 
-KnoxCraftMod emits JSON with the structure `playerName → programName → payload`. There are two payload formats depending on whether the program uses threads.
+The client-side Knoxel Java library runs in the student's IDE and emits JSON in the format below (only part of the code to save space, but format is accurate). A single threaded program has an array of threads, but only one actual thread (multi-threaded programs will obviously have more than one thread). The version is 2 for the current version of Knoxel. `email`, `program`, and `description` are required; they cannot be empty but we don't validate them otherwise.
 
 ### Single-turtle format
 
 ```json
 {
-  "lucky_creeper": {
-    "flag": {
-      "instructions": [
-        { "cmd": "forward" },
-        { "cmd": "setBlock", "blk": "minecraft:dark_prismarine" },
-        { "cmd": "forward" },
-        { "cmd": "setBlock", "blk": "minecraft:dark_prismarine" },
-        { "cmd": "right" },
-        { "cmd": "forward" }
-      ]
-    }
-  }
+  "version": 2,
+  "email": "student@knox.edu",
+  "program": "flag",
+  "description": "Flag of Mauritius",
+  "threads": [
+    [
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      }
+    ]
+  ]
 }
 ```
 
 ### Threaded format
 
-Confirmed from actual KnoxCraftMod output (Mauritius flag program, 4 threads):
+The JSON below is emitted by the client-side Java code for a multi-threaded Knox program. This only shows part of 2 threads of the original program. The `version` is 2, and `email`, `program`, and `description` must exist and be not empty but are not otherwise validated.
 
 ```json
 {
-  "lucky_creeper": {
-    "pflag": {
-      "description": "Mauritius in parallel!",
-      "type": "parallel",
-      "threads": [
-        [
-          { "cmd": "nop" },
-          { "cmd": "forward" },
-          { "cmd": "setBlock", "blk": "minecraft:red_wool" }
-        ],
-        [
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "nop" },
-          { "cmd": "forward" },
-          { "cmd": "setBlock", "blk": "minecraft:blue_wool" }
-        ],
-        [
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "nop" },
-          { "cmd": "forward" },
-          { "cmd": "setBlock", "blk": "minecraft:yellow_wool" }
-        ],
-        [
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "right" },
-          { "cmd": "forward" },
-          { "cmd": "setBlock", "blk": "minecraft:green_wool" }
-        ]
-      ]
-    }
-  }
-}
+  "version": 2,
+  "email": "fakeuser@domain.com",
+  "program": "pflag",
+  "description": "Mauritius in parallel!",
+  "threads": [
+    [
+      {
+        "cmd": "nop",
+        "n": 12
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      }
+    ],
+    [
+      {
+        "cmd": "right",
+        "n": 4
+      },
+      {
+        "cmd": "nop",
+        "n": 8
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      }
+    ]
 ```
 
 Key observations:
-- `"type": "parallel"` is the discriminator field
+- Single threaded programs just have 1 array in the array of threads.
 - `threads` is an **array of arrays** — each thread is a bare instruction array, not an object with an `instructions` key
 - Threads do NOT need to be the same length — threads that finish early stop while others continue
 - `nop` is used for synchronization: each thread burns a different number of turns + nops to arrive at a different facing direction at the same tick, then all turtles begin drawing simultaneously
 - The `description` field is optional metadata, ignore during execution
-
-Single-turtle programs have no `type` field and use `instructions` directly (see single-turtle format above). The discriminator logic:
-
-```javascript
-function parseProgram(payload) {
-  if (payload.type === 'parallel') {
-    // threads is array of arrays
-    return { mode: 'parallel', threads: payload.threads }
-  } else {
-    // treat as degenerate single-thread case
-    return { mode: 'parallel', threads: [payload.instructions] }
-  }
-}
-```
 
 Sequential programs are treated as a degenerate case of parallel (one thread). The interpreter always runs the lockstep multi-turtle loop; it just has one element for sequential programs. This simplifies the interpreter significantly.
 
@@ -629,18 +666,17 @@ Sequential programs are treated as a degenerate case of parallel (one thread). T
 | `turnRight` | **never** | never | rotate 90° right (no n parameter) |
 | `nop` | optional (default 1) | never | wait n ticks (thread synchronization) |
 | `setBlock` | **never** | required | place block at current position, don't move |
-| `setBlockForward` | optional (default 1) | required | place n blocks forward, end on last |
-| `setBlockBack` | optional (default 1) | required | place n blocks back, end on last |
-| `setBlockLeft` | optional (default 1) | required | place n blocks left, end on last |
-| `setBlockRight` | optional (default 1) | required | place n blocks right, end on last |
-| `setBlockUp` | optional (default 1) | required | place n blocks up, end on last |
-| `setBlockDown` | optional (default 1) | required | place n blocks down, end on last |
+| `setBlockForward` | required | required | place n blocks forward, start at current block, end on last block |
+| `setBlockBack` | required | required | place n blocks back, start at current block, end on last block |
+| `setBlockLeft` | required | required | place n blocks left, start at current block, end on last block |
+| `setBlockRight` | required | required | place n blocks right, start at current block, end on last block |
+| `setBlockUp` | required | required | place n blocks up, start at current block, end on last block |
+| `setBlockDown` | required | required | place n blocks down, start at current block, end on last block |
 
 **Key distinctions:**
 - `left`/`right` are **strafe** (translate sideways), not turn
 - `turnLeft`/`turnRight` are **rotate** (change facing), never take `n`
 - `setBlock` never takes `n` — it always places at current position only
-- All other commands default to n=1 when `n` is absent
 
 **Thread sync patterns confirmed in samples:**
 - `nop(n)` — wait n ticks while other threads work
@@ -697,7 +733,7 @@ The interpreter expands these at runtime — each tick consumes one sub-step of 
 
 #### Block color values
 
-Block IDs are `minecraft:` namespaced strings, hex color strings, or `java.awt.Color`-derived values. The Java turtle library converts all color types to strings before serialization:
+Block IDs are `minecraft:` namespaced strings, or hex color strings derived from `Java.awt.Color` values. The Java turtle library converts all color types to strings before serialization:
 
 | Java source | JSON value | Renderer behavior |
 |---|---|---|
@@ -774,9 +810,11 @@ Why not one interval per thread: JS intervals drift. Two intervals at the same r
 
 **Speed slider behavior:**
 - Default: 20 ticks/second (Minecraft rate)
-- Range: 1–20 ticks/second with full smooth animation
-- Above 20 ticks/second (if slider allows): collapse animation, switch to instant block placement. Queuing more animations than the renderer can handle produces worse results than just skipping them.
+- Range: 1–60 ticks/second
+- At 1-20 ticks/second: full smooth animation, tweens visible
+- Above 20 ticks/second: collapse animation, switch to instant block placement. Queuing more animations than the renderer can handle produces worse results than skipping them.
 - Animation duration always scales proportionally to tick duration — at 10 ticks/second, move tweens take 80ms; at 20 ticks/second they take 40ms.
+- 60 ticks/second is the ceiling — above that programs finish too fast to be useful as a visualization.
 
 ### Multi-turtle (threaded) interpreter
 
@@ -832,10 +870,10 @@ Steps per second is user-controlled via a slider (1–100). Changing speed resch
 
 ### Camera
 
-- Orbit camera (mouse drag), pan (right-click drag), zoom (scroll)
-- Auto-follows active turtle by default
-- Manual interaction disables auto-follow until reset
-- Camera state preserved when new blocks are placed
+- Orbit mode (default): mouse-drag to orbit, right-drag to pan, scroll to zoom
+- First-person mode: click canvas to enter, ESC to exit. WASD + mouse look. No F key toggle.
+- Camera never auto-follows turtle — stays wherever the student left it
+- See section 13 for full camera and controls spec
 
 ---
 
@@ -847,18 +885,18 @@ The camera is the student's viewpoint — always free, always movable, independe
 
 ### Camera modes
 
-Two modes, toggle with `F`.
+Two modes. Click the canvas to enter first-person. ESC to exit.
 
-**Orbit mode (default):** mouse-drag to orbit, right-drag to pan, scroll to zoom. Good for overview, watching builds from outside. Auto-follows the active turtle when a program is running; manual interaction disables auto-follow.
+**Orbit mode (default):** mouse-drag to orbit, right-drag to pan, scroll to zoom. Good for overview.
 
-**First-person mode:** Pointer Lock API captures the mouse. WASD moves in camera facing direction. Mouse look controls yaw/pitch. Space/Shift move up/down. No gravity, no collision — students fly freely through blocks. This is intentional; they need to fly inside structures.
+**First-person mode:** click anywhere on the canvas → Pointer Lock API captures the mouse → first-person fly camera. WASD moves in camera facing direction. Mouse look controls yaw/pitch. Space moves up. Shift moves down.
 
-- `F` toggles between modes
-- `Escape` exits first-person and releases pointer lock (browser standard behavior)
-- Show "Click to capture mouse · ESC to exit" overlay on first-person entry
-- Pointer Lock requires a user gesture (click) to initiate
+- **Click on canvas** enters first-person (Pointer Lock). No F key required.
+- `Escape` exits first-person and releases pointer lock (browser standard)
+- Show "Click to enter · ESC to exit" overlay when in orbit mode
 - Clamp pitch to ±89° to prevent upside-down flip
-- No collision detection — clipping through blocks is fine
+- **Ground collision:** camera Y must never go below ground level. Clamp: `camera.position.y = Math.max(GROUND_Y + 0.5, newY)`. Shift key stops at ground, does not go through it.
+- No collision with blocks — camera clips through blocks freely. Only the ground is solid.
 
 **Pointer lock and UI interaction are mutually exclusive.** When pointer lock is active (first-person), mouse clicks go to the 3D view. When pointer lock is released (Escape or orbit mode), clicks work normally on the panel UI. Students must always be able to hit Escape to reach the Stop button — they should never feel trapped unable to stop a runaway turtle.
 
@@ -874,18 +912,20 @@ The turtle has three states:
 
 ### Turtle controls (idle state only)
 
-Turtle controls use arrow keys and Page Up/Down — separate from WASD camera controls so both can be active simultaneously without conflicts.
+Turtle controls use `IJKL` + `U`/`O` — completely separate from WASD camera controls, no conflicts.
 
 | Action | Key |
 |---|---|
-| Move forward (turtle facing) | Arrow Up |
-| Move back | Arrow Down |
-| Move left (strafe) | Arrow Left |
-| Move right (strafe) | Arrow Right |
-| Move up | Page Up |
-| Move down | Page Down |
+| Move forward (turtle facing) | I |
+| Move back | K |
+| Move left (strafe) | J |
+| Move right (strafe) | L |
+| Move up | U |
+| Move down | O |
 | Rotate 90° left | Q |
 | Rotate 90° right | E |
+
+Turtle movement keys work in both orbit and first-person mode — student can position the turtle while flying the camera around to see it from different angles.
 
 Turtle facing controls both the rotation of the turtle mesh and the direction `forward` instructions will execute. Rotating before running a program determines the orientation of the entire build — students use this to avoid overwriting each other's work by positioning and facing the turtle toward empty space.
 
@@ -895,12 +935,12 @@ Turtle facing controls both the rotation of the turtle mesh and the direction `f
 |---|---|
 | Move forward/back/left/right | WASD |
 | Move up | Space |
-| Move down | Shift |
+| Move down | Shift (clamped at ground level) |
 | Look around (first-person) | Mouse |
 | Orbit (orbit mode) | Left-drag |
 | Pan (orbit mode) | Right-drag |
 | Zoom | Scroll wheel |
-| Toggle first-person/orbit | F |
+| Enter first-person | Click on canvas |
 | Exit first-person | Escape |
 | Interact with UI | Click (when not in pointer lock) |
 
@@ -919,30 +959,29 @@ The JSON contains no embedded position or facing information — it is purely a 
 ### Student flow — multiplayer (PocketBase server)
 
 1. Open browser to the server URL, type display name and Knox email, click Join.
-2. Copy upload token from the browser UI — paste it into Java code once.
-3. In VS Code: write Java turtle program, set server URL and token, run it. JSON POSTs to PocketBase.
+2. In VS Code: write Java turtle program, set server URL and email, run it. JSON POSTs to PocketBase.
 4. Back in browser: new program appears in program list automatically (real-time subscription).
-5. Fly camera to an empty area of the world.
+5. Fly camera to wherever you want to watch from.
 6. Spawn turtle (button in UI) — turtle appears at camera position.
-7. Use arrow keys to position and face the turtle toward empty space.
+7. Use IJKL keys to position the turtle and Q/E to rotate it toward empty space.
 8. Select program from list, click Run.
 9. Fly camera around to watch. Hit Stop if something goes wrong.
 10. Iterate: fix Java in VS Code, re-run, new program appears in list, move turtle to fresh spot, Run again.
 
 ### Student flow — static tier (GitHub Pages)
 
-1. In VS Code: write Java turtle program, call `turtle.openInBrowser("https://knoxel.github.io")`.
+1. In VS Code: write Java turtle program, call `turtle.openInBrowser("https://jspacco.github.io/knoxel")`.
 2. Java program runs locally, POSTs JSON to Cloudflare Worker, gets a short ID back.
-3. Browser opens automatically to `https://knoxel.github.io/?id=xk7r9m`.
+3. Browser opens automatically to `https://jspacco.github.io/knoxel/?id=xk7r9m`.
 4. Browser fetches JSON from Worker, auto-runs the program immediately — no login, no token, no drag-and-drop.
 5. Student watches turtle run. Can pause, reset, re-run from the UI.
 6. No multiplayer — solo visualization only. Other students' turtles are not visible.
-7. Fallback: if POST fails, Java library saves a JSON file locally and opens `knoxel.github.io` — student drags the file into the browser drop zone.
+7. Fallback: if POST fails, Java library saves a JSON file locally and opens `jspacco.github.io/knoxel` — student drags the file into the browser drop zone.
 
 **Landing page behavior:**
 - `?id=` present → fetch from Worker → auto-run program immediately
 - `?id=` absent → show drag-and-drop zone and paste-JSON option
-- Worker returns 404 (expired after 24h) → show friendly error: "This link has expired. Ask your instructor to re-run your program, or drag your JSON file here."
+- Worker returns 404 (expired after 24h) → show friendly error: "This link has expired. Re-run your Java program to generate a new link, or drag your JSON file here."
 
 **No login, no email, no token** — the static tier is completely anonymous. Identity only matters in the multiplayer tier.
 
@@ -1407,7 +1446,7 @@ The Minecraft mod (KnoxCraftMod) remains the Java programming environment. This 
 - [x] **JSON format v2:** Confirmed from real Java client output. See section 10 and `samples/` directory.
 - [ ] **build-atlas.js first run:** Run the script once against the Faithful 1.21.8 checkout and check the missing textures report. Some skull/head texture filenames may not match expectations — add missing entries to `FALLBACK_TEXTURES`. Commit the resulting `atlas.png` and `atlas.ts` before handing to Weirdo.
 - [ ] **Animated block textures:** Sea lantern, magma block, and a few others are animated in Faithful (MCMeta files). Currently using first frame only. Animation support is a v2 item.
-- [ ] **GitHub Pages URL:** Confirm final URL — `knoxel.github.io` requires a GitHub organization (extra setup); `jspacco.github.io/knoxel` works with Jaime's existing account. Update `VITE_WORKER_URL` CORS header and any hardcoded references once decided.
-- [ ] **Cloudflare Worker KV namespace name:** Decide on `PROGRAMS` or another name. Update `wrangler.toml`. Document the one-time `npx wrangler deploy` step in `docs/faculty-setup.md`.
-- [ ] **Knoxel Java library `openInBrowser()`:** The standalone Java library needs this method — POSTs JSON to Cloudflare Worker, opens browser to `knoxel.github.io/?id=<id>`. This is Jaime's code to write, not Weirdo's. Weirdo documents the expected POST format and response shape in `docs/student-guide.md`.
-- [ ] **`knoxel-server.js` wrapper:** Needs to be written as part of Stage 6. Should detect whether PocketBase is already running (port check) before starting it. Should open the browser automatically after world selection on Mac/Windows.
+- [x] **GitHub Pages URL:** Confirmed as `jspacco.github.io/knoxel`. CORS header in Worker updated accordingly.
+- [x] **Cloudflare Worker KV namespace:** Named `KNOXEL`. Deployed at `knoxel-worker.jspacco.workers.dev`. Done.
+- [ ] **Knoxel Java library `openInBrowser()`:** The standalone Java library needs this method — POSTs JSON to Cloudflare Worker at `knoxel-worker.jspacco.workers.dev`, opens browser to `jspacco.github.io/knoxel/?id=<id>`. This is Jaime's code to write, not Weirdo's. Weirdo documents the expected POST format and response shape in `docs/student-guide.md`.
+- [x] **`knoxel-server.js` wrapper:** Written and working. Handles superuser detection, world selection/creation, sets `is_active` on selected world via PATCH. Does not open browser (faculty open Vite dev server at 5173 during dev, or 8090 in production).
