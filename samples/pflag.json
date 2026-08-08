@@ -1,0 +1,232 @@
+{
+  "version": 2,
+  "email": "fakeuser@domain.com",
+  "program": "pflag",
+  "description": "Mauritius in parallel!",
+  "threads": [
+    [
+      {
+        "cmd": "nop",
+        "n": 12
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:red_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      }
+    ],
+    [
+      {
+        "cmd": "right",
+        "n": 4
+      },
+      {
+        "cmd": "nop",
+        "n": 8
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:blue_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      }
+    ],
+    [
+      {
+        "cmd": "right",
+        "n": 8
+      },
+      {
+        "cmd": "nop",
+        "n": 4
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:yellow_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:yellow_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:yellow_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:yellow_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      }
+    ],
+    [
+      {
+        "cmd": "right",
+        "n": 12
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:green_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:green_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:green_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      },
+      {
+        "cmd": "setBlockForward",
+        "blk": "minecraft:green_wool",
+        "n": 12
+      },
+      {
+        "cmd": "back",
+        "n": 11
+      },
+      {
+        "cmd": "right"
+      }
+    ]
+  ]
+}
