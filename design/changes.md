@@ -782,3 +782,132 @@ the JSON to cloudflare."
    last open question in design.md section 19 — that's your code to write.
    `docs/student-guide.md` now has the exact contract (POST shape, response
    shape, the URL to open) for it to target.
+
+## 2026-08-08 — Full distributable installation: PocketBase + client, one URL
+
+**Intent:** Jaime said the Cloudflare/static tier is working (he published it
+to jspacco.github.io/knoxel with `gh-pages`) and asked to finish the rest of
+the code so he can create a full distributable installation — PocketBase
+plus the client code, serving everything from one URL. This is Tier 2/3 from
+design.md section 3: the pieces design.md section 17 describes
+(`scripts/build.sh`, distribution zips) didn't exist yet, and
+`scripts/knoxel-server.js` — the CLI wrapper from Stage 4 — still always
+spawned a second Vite dev-server process rather than ever actually serving
+everything from one URL/process the way section 4 requires.
+
+**Prompt:** "ok, cloudflare works. i just posted it to jspacco.github.io/knoxel
+using the gh-pages command, which is awesome. can you please finish the rest
+of the code so that i can create a full distributable installation that uses
+pocketbase plus the client code, and serves everything to one URL that can
+connect to pocketbase?"
+
+**Changes:**
+- `scripts/build.sh` (new) — builds the client with `VITE_POCKETBASE_URL=/`
+  (same-origin, no GitHub Pages subpath) and copies `client/dist/` into
+  `server/pb_public/`. Ran it for real — confirmed the built `index.html`
+  references root-relative asset paths (`/assets/...`, not `/knoxel/...`),
+  correct for a same-origin PocketBase deployment.
+- `scripts/download-pocketbase.sh` — added `--out-dir`, defaulting to the
+  existing `server/` behavior. Needed so `package.sh` can stage a
+  cross-platform binary without ever touching the developer's own local
+  `server/pocketbase`.
+- `scripts/knoxel-server.js` — three real fixes, each caught by actually
+  running the packaged output end-to-end (headless, driven programmatically)
+  rather than by reading the code back:
+  1. **Single-URL serving.** Previously it unconditionally spawned `npm run
+     dev` for the client after PocketBase started, so "one URL" never
+     actually happened even with a build present. Now it checks whether
+     `server/pb_public` exists: if so (a real build/distributable),
+     PocketBase alone serves the API and the static client from one origin
+     and the banner prints exactly one URL; if not (a bare dev checkout), it
+     falls back to the old dev-server-spawning behavior so
+     `node scripts/knoxel-server.js` still works without requiring a build
+     first, with a message pointing at `scripts/build.sh`.
+  2. **PocketBase now binds `0.0.0.0:8090` instead of `127.0.0.1:8090`.**
+     Caught by re-reading design.md section 3 ("students connect from the
+     same network") — bound to loopback only, no other device on the LAN
+     could ever have reached it, which would have silently broken the
+     entire point of Tier 2 for every faculty member who used this. Internal
+     calls from the wrapper itself still use `127.0.0.1` (loopback works
+     fine against a `0.0.0.0` listener).
+  3. **Superuser bootstrap was actually broken, not just unverified.** The
+     inherited `hasSuperuser()` check POSTed bogus credentials and treated
+     HTTP 400 as "a superuser exists" — confirmed by testing against a
+     genuinely empty `pb_data` that PocketBase returns the *same* 400 for
+     "no such account at all", so the check always reported true and the
+     browser-based "go create your superuser" step never ran on a real first
+     install. It also assumed a local browser exists, which fails outright
+     on a headless Tier 3 box. Replaced entirely: the wrapper now runs
+     `pocketbase superuser upsert knoxel-bootstrap@knoxel.local <fresh
+     random password>` every run (PocketBase's own documented
+     non-interactive provisioning command, idempotent, operates directly on
+     the SQLite file) and authenticates as that account for its own world-
+     management calls. Zero superuser-related prompts, no `.env` needed, no
+     browser dependency — and it now works unattended on a cloud server too.
+     An operator-supplied `PB_ADMIN_EMAIL`/`PB_ADMIN_PASSWORD` in `.env` is
+     still honored first if present and valid, for anyone who wants a known
+     login for PocketBase's own `/_/` admin UI.
+- `server/pb_hooks/upload.pb.js` — the Java upload route picked "the active
+  world" by most-recently-created, a stand-in noted as temporary back when
+  there was no CLI world-selection wrapper. That wrapper (`knoxel-server.js`)
+  now exists and sets `is_active=true` on the chosen world, so this hook now
+  looks up `is_active = true` first (falling back to most-recent only if
+  nothing is marked active), matching what the browser already does via
+  `client/src/lib/pocketbase.ts::fetchActiveWorld()`. Without this fix,
+  Java uploads on a server with more than one world could silently land in
+  the wrong one even after a faculty member explicitly selected a different
+  one at startup.
+- `scripts/dist-template/` (new) — `start.command` (Mac), `start.bat`
+  (Windows), `start.sh` (Linux), and `README.txt`, templated into each
+  packaged zip by `package.sh`. Each start script checks for Node.js first
+  and prints an install link rather than failing cryptically if it's
+  missing (see **NEEDS JAIME** below). `README.txt` documents the actual
+  first-run flow faculty will see: no superuser step at all now (see fix 3
+  above), just world naming/auth-mode selection, then the printed
+  Open/LAN URLs.
+- `scripts/package.sh` (new) — builds the client once, then for each target
+  platform (`mac-arm64`, `mac-x64`, `windows-x64`, `linux-x64`; defaults to
+  `mac-arm64` + `windows-x64`) downloads that platform's PocketBase binary
+  into an isolated staging directory, assembles
+  `scripts/knoxel-server.js` + `server/{pocketbase,pb_migrations,pb_hooks,
+  pb_public}` + the matching start script + README.txt (mirroring the repo's
+  own relative directory layout exactly, so `knoxel-server.js`'s existing
+  `__dirname`-relative paths need no changes), and zips the result into
+  `dist/`.
+- Verified end-to-end twice with headless, programmatically-driven sessions
+  against the actual built `dist/knoxel-mac-arm64.zip` (not just by reading
+  the scripts back): first pass caught the superuser bug above (confirmed by
+  observing the real prompt sequence deviate from what the code was supposed
+  to show); after the fix, a full fresh-install run — PocketBase startup,
+  straight to world creation with no superuser prompt at all, single-URL
+  banner with no `:5173` reference, `curl` confirming PocketBase serves the
+  actual built `index.html` and the created world's `is_active: true` state,
+  clean shutdown with nothing left listening on 8090 — and a second run
+  against the now-existing `pb_data` (world reuse prompt, clean start/stop)
+  both passed every check.
+- design.md sections affected: none — this implements sections 3/4/17
+  (Tiers 2/3, one-process serving, distribution zips) as already specified,
+  plus a bugfix to the Stage-4-era `upload.pb.js` active-world lookup.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Two things flagged rather than silently decided:
+1. **Distribution zips still require Node.js to be installed on the faculty
+   machine**, which design.md section 2's goals list says shouldn't be
+   necessary ("No Node.js... required"). `scripts/knoxel-server.js` itself
+   only uses Node built-ins (no `npm install` needed for it), but Node
+   itself still has to be present to run it at all. The start scripts now at
+   least detect a missing Node install and print a clear message instead of
+   failing cryptically, but that's a mitigation, not a fix. Removing the
+   Node dependency entirely would mean bundling a runtime (e.g. via `pkg`)
+   or rewriting the wrapper's logic into the PocketBase binary itself via Go
+   hooks — both are meaningfully bigger changes than this task, so I didn't
+   attempt either without your steer.
+2. **The bootstrap superuser account (`knoxel-bootstrap@knoxel.local`) is
+   invisible by design** — faculty are never shown its password (it's
+   regenerated every run and never printed), so there's no built-in way to
+   log into PocketBase's own `/_/` admin UI unless they explicitly set
+   `PB_ADMIN_EMAIL`/`PB_ADMIN_PASSWORD` in `.env` themselves or run
+   `pocketbase superuser upsert` by hand (documented in the distributable's
+   README.txt). This trades away a debugging convenience for removing a
+   confirmed-broken, browser-dependent first-run step; say so if you'd
+   rather the wrapper print/rotate a visible admin login instead.

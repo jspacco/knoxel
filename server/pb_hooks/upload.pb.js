@@ -13,14 +13,11 @@
  * up on its own. This route does that lookup (find-or-create in open mode,
  * password-checked lookup in accounts mode) and then creates the record.
  *
- * "Active world" is picked as the most recently created `worlds` row —
- * there is no CLI world-selection wrapper yet (design.md section 8
- * describes one but no build stage currently owns writing it), so this is
- * the same conservative stand-in used by the browser login flow
- * (usePocketbase.ts). **NEEDS JAIME**: confirm this is fine until that
- * wrapper exists, since a server with multiple worlds will always route
- * Java uploads to the newest one regardless of which one a given class is
- * actually using.
+ * "Active world" is whichever `worlds` row has `is_active = true`, set by
+ * `scripts/knoxel-server.js` at startup — same convention the browser login
+ * flow uses (`client/src/lib/pocketbase.ts::fetchActiveWorld`). Falls back
+ * to the most recently created world if none is marked active (e.g. the
+ * server was started by hand without the CLI wrapper).
  */
 routerAdd('POST', '/upload', (e) => {
   const email = e.request.header.get('X-Email')
@@ -40,7 +37,10 @@ routerAdd('POST', '/upload', (e) => {
     throw new BadRequestError('Request body is not valid JSON.')
   }
 
-  const worlds = e.app.findRecordsByFilter('worlds', '', '-created_at', 1, 0)
+  let worlds = e.app.findRecordsByFilter('worlds', 'is_active = true', '-created_at', 1, 0)
+  if (worlds.length === 0) {
+    worlds = e.app.findRecordsByFilter('worlds', '', '-created_at', 1, 0)
+  }
   if (worlds.length === 0) {
     throw new BadRequestError('No world is configured on this server yet.')
   }

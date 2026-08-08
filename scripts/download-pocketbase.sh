@@ -8,6 +8,7 @@
 #   scripts/download-pocketbase.sh                # auto-detect platform/arch
 #   scripts/download-pocketbase.sh --version 0.40.0
 #   scripts/download-pocketbase.sh --platform windows --arch amd64
+#   scripts/download-pocketbase.sh --platform windows --arch amd64 --out-dir /tmp/stage
 #
 set -euo pipefail
 
@@ -15,12 +16,14 @@ DEFAULT_VERSION="0.39.10"
 VERSION="${POCKETBASE_VERSION:-$DEFAULT_VERSION}"
 PLATFORM=""
 ARCH=""
+OUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version) VERSION="$2"; shift 2 ;;
     --platform) PLATFORM="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
+    --out-dir) OUT_DIR="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -46,7 +49,7 @@ if [[ -z "$ARCH" ]]; then
 fi
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVER_DIR="$REPO_DIR/server"
+SERVER_DIR="${OUT_DIR:-$REPO_DIR/server}"
 mkdir -p "$SERVER_DIR"
 
 ASSET="pocketbase_${VERSION}_${PLATFORM}_${ARCH}.zip"

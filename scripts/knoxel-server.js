@@ -5,8 +5,12 @@
  * Wrapper around the PocketBase binary that handles:
  *   1. Starting PocketBase
  *   2. Waiting for it to be ready
- *   3. World selection / creation via CLI prompt
- *   4. Setting is_active=true on the selected world in the database
+ *   3. Provisioning a superuser session (non-interactive — see BOOTSTRAP_EMAIL)
+ *   4. World selection / creation via CLI prompt
+ *   5. Setting is_active=true on the selected world in the database
+ *   6. Serving everything from one URL if server/pb_public exists (a real
+ *      distributable), or also starting the Vite dev server if not (a dev
+ *      checkout — see scripts/build.sh)
  *
  * Usage:
  *   node scripts/knoxel-server.js
@@ -17,11 +21,12 @@
  * Client queries: /api/collections/worlds/records?filter=(is_active=true)&perPage=1
  */
 
-const { spawn, execSync } = require('child_process')
+const { spawn, execSync, execFileSync } = require('child_process')
 const http     = require('http')
 const https    = require('https')
 const fs       = require('fs')
 const path     = require('path')
+const crypto   = require('crypto')
 const readline = require('readline')
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,33 +110,66 @@ async function waitForPocketBase() {
   throw new Error(`PocketBase did not start within ${HEALTH_TIMEOUT_MS / 1000}s`)
 }
 
-async function hasSuperuser() {
-  try {
-    const res = await httpPost(
-      `${PB_URL}/api/collections/_superusers/auth-with-password`,
-      { identity: 'check@check.com', password: 'checkcheck' }
-    )
-    return res.status === 400  // 400 = wrong credentials = superuser exists
-  } catch {
-    return false
-  }
-}
-
-async function getAdminToken() {
-  const email    = process.env.PB_ADMIN_EMAIL
-  const password = process.env.PB_ADMIN_PASSWORD
-  if (!email || !password) return null
+async function authAsAdmin(email, password) {
   try {
     const res = await httpPost(
       `${PB_URL}/api/collections/_superusers/auth-with-password`,
       { identity: email, password }
     )
     if (res.status === 200) return JSON.parse(res.body).token
-    console.error('Admin auth failed — check PB_ADMIN_EMAIL and PB_ADMIN_PASSWORD in .env')
-  } catch (e) {
-    console.error('Admin auth error:', e.message)
+    return null
+  } catch {
+    return null
   }
-  return null
+}
+
+// Fixed, unlisted account this wrapper uses to manage worlds via the REST
+// API. worlds.createRule/updateRule require a superuser session (see
+// pb_migrations/003).
+//
+// An earlier version of this file tried to *detect* whether a superuser
+// already existed (POST bogus credentials, treat HTTP 400 as "one exists")
+// and, if not, opened a browser to /_/ for the operator to create one by
+// hand. That heuristic is wrong: PocketBase returns the same 400 for "wrong
+// password" and "no such account", so it always reported true, and the
+// browser-creation step never ran on an actual first install. It also
+// assumed a local browser exists at all, which fails outright on a
+// headless Tier 3 cloud box.
+//
+// `pocketbase superuser upsert` is PocketBase's own documented mechanism
+// for provisioning a superuser non-interactively and is idempotent, so
+// there's nothing to detect — just (re)create this one account with a
+// freshly generated password every run and use it as our session. It
+// operates directly on the SQLite file (no HTTP involved), so it works
+// whether or not the `serve` process has already reached "ready".
+const BOOTSTRAP_EMAIL = 'knoxel-bootstrap@knoxel.local'
+
+function generatePassword() {
+  return crypto.randomBytes(24).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)
+}
+
+async function ensureAdminToken() {
+  // An operator-provided superuser (e.g. to log into /_/ under a known
+  // identity for manual DB poking) is honored if present and valid;
+  // otherwise fall back to the self-managed bootstrap account.
+  const envEmail    = process.env.PB_ADMIN_EMAIL
+  const envPassword = process.env.PB_ADMIN_PASSWORD
+  if (envEmail && envPassword) {
+    const token = await authAsAdmin(envEmail, envPassword)
+    if (token) return token
+    console.warn('PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD in .env did not authenticate — falling back to the built-in admin account.\n')
+  }
+
+  const password = generatePassword()
+  execFileSync(PB_BINARY, ['superuser', 'upsert', BOOTSTRAP_EMAIL, password], {
+    cwd: POCKETBASE_DIR,
+    stdio: 'ignore',
+  })
+  const token = await authAsAdmin(BOOTSTRAP_EMAIL, password)
+  if (!token) {
+    throw new Error('Bootstrap superuser did not authenticate immediately after being created.')
+  }
+  return token
 }
 
 async function fetchWorlds(token) {
@@ -303,7 +341,9 @@ async function main() {
   }
 
   console.log('Starting PocketBase...')
-  const pb = spawn(PB_BINARY, ['serve', '--http=127.0.0.1:8090'], {
+  // Bind all interfaces, not just loopback — Tier 2's whole point is other
+  // students on the same network connecting in. See design.md section 3.
+  const pb = spawn(PB_BINARY, ['serve', '--http=0.0.0.0:8090'], {
     cwd: POCKETBASE_DIR, stdio: ['ignore', 'pipe', 'pipe'],
   })
 
@@ -324,19 +364,12 @@ async function main() {
 
   await waitForPocketBase()
 
-  if (!(await hasSuperuser())) {
-    console.log('─────────────────────────────────────────')
-    console.log('First run: create a superuser account')
-    console.log(`\n  ${PB_URL}/_/\n`)
-    openBrowser(`${PB_URL}/_/`)
-    console.log('─────────────────────────────────────────\n')
-    await prompt('Press enter when your superuser account is created: ')
-  }
-
-  const token = await getAdminToken()
-  if (!token) {
-    console.warn('Warning: no admin credentials in .env')
-    console.warn('Add PB_ADMIN_EMAIL and PB_ADMIN_PASSWORD to your .env file.\n')
+  let token
+  try {
+    token = await ensureAdminToken()
+  } catch (e) {
+    console.error(`Could not set up an admin session: ${e.message}`)
+    killAll(); process.exit(1)
   }
 
   let world, allWorlds
@@ -355,30 +388,49 @@ async function main() {
     console.warn('Client will fall back to most-recently-created world.')
   }
 
-  // VITE_POCKETBASE_URL must be set or the client falls back to solo mode —
-  // no server, no login screen, no display-name/email prompt (see
-  // client/src/lib/pocketbase.ts POCKETBASE_ENABLED). Spawning the dev
-  // server here ourselves, instead of just printing instructions, means
-  // there's no way to forget to set it in a second terminal.
-  console.log('Starting client dev server...')
-  client = spawn('npm', ['run', 'dev'], {
-    cwd: CLIENT_DIR,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, VITE_POCKETBASE_URL: '/' },
-  })
-  client.stdout.on('data', data => console.log(`[client] ${data.toString().trim()}`))
-  client.stderr.on('data', data => console.error(`[client] ${data.toString().trim()}`))
-  client.on('exit', code => { if (code) { console.error(`Client dev server exited: ${code}`); pb.kill(); process.exit(code) } })
-
   const ip = getLocalIP()
-  console.log('\n─────────────────────────────────────────')
-  console.log(`  World:  ${world.name}`)
-  console.log(`  Auth:   ${world.auth_mode} mode`)
-  console.log(`  API:    http://127.0.0.1:8090`)
-  if (ip) console.log(`  LAN:    http://${ip}:8090`)
-  console.log('\nOpen http://127.0.0.1:5173 in your browser.')
-  console.log('─────────────────────────────────────────')
-  console.log('Press Ctrl+C to stop.\n')
+  const isBuilt = fs.existsSync(path.join(POCKETBASE_DIR, 'pb_public'))
+
+  if (isBuilt) {
+    // server/pb_public exists — this is a built/packaged distributable.
+    // PocketBase serves the built client from the same origin as the API,
+    // so there is exactly one process and one URL. See design.md section 4.
+    console.log('\n─────────────────────────────────────────')
+    console.log(`  World:  ${world.name}`)
+    console.log(`  Auth:   ${world.auth_mode} mode`)
+    console.log(`\n  Open:   http://127.0.0.1:8090`)
+    if (ip) console.log(`  LAN:    http://${ip}:8090`)
+    console.log('─────────────────────────────────────────')
+    console.log('Press Ctrl+C to stop.\n')
+    openBrowser('http://127.0.0.1:8090')
+  } else {
+    // No build present — a dev checkout, not a packaged distributable.
+    // Fall back to also running the Vite dev server so this still works for
+    // local iteration without requiring scripts/build.sh first.
+    console.log('No server/pb_public found — this looks like a dev checkout.')
+    console.log('Starting the Vite dev server too. Run scripts/build.sh first to serve everything from one URL, as a real distributable would.\n')
+
+    // VITE_POCKETBASE_URL must be set or the client falls back to solo mode
+    // (see client/src/lib/pocketbase.ts POCKETBASE_ENABLED).
+    client = spawn('npm', ['run', 'dev'], {
+      cwd: CLIENT_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, VITE_POCKETBASE_URL: '/' },
+    })
+    client.stdout.on('data', data => console.log(`[client] ${data.toString().trim()}`))
+    client.stderr.on('data', data => console.error(`[client] ${data.toString().trim()}`))
+    client.on('exit', code => { if (code) { console.error(`Client dev server exited: ${code}`); pb.kill(); process.exit(code) } })
+
+    console.log('─────────────────────────────────────────')
+    console.log(`  World:  ${world.name}`)
+    console.log(`  Auth:   ${world.auth_mode} mode`)
+    console.log(`  API:    http://127.0.0.1:8090`)
+    if (ip) console.log(`  LAN:    http://${ip}:8090`)
+    console.log('\nOpen http://127.0.0.1:5173 in your browser.')
+    console.log('─────────────────────────────────────────')
+    console.log('Press Ctrl+C to stop.\n')
+  }
+
   await new Promise(() => {})
 }
 
