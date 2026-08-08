@@ -1,5 +1,6 @@
 package edu.knox.knoxel;
 
+import java.awt.Desktop;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -140,6 +141,47 @@ public class KnoxelUploader
         String program;
         String description;
         List<List<TerpInstruction>> threads;
+    }
+
+    public static void openInBrowser(Terp terp, String email, String workerUrl, String pageUrl)
+    throws Exception
+    {
+        String json = toJson(terp, email);
+        openInBrowser(json, workerUrl, pageUrl);
+    }
+
+    public static void openInBrowser(ParallelTerp terp, String email, String workerUrl, String pageUrl)
+    throws Exception 
+    {
+        String json = toJson(terp, email);
+        openInBrowser(json, workerUrl, pageUrl);
+    }
+
+    private static void openInBrowser(String json, String workerUrl, String pageUrl)
+    throws Exception 
+    {
+
+        // 2. POST to Cloudflare Worker
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(workerUrl))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(json))
+            .build();
+        
+        HttpResponse<String> response = client.send(request, 
+            HttpResponse.BodyHandlers.ofString());
+        
+        // 3. Parse the ID from {"id": "abc12345"}
+        String body = response.body();
+        // simple parse — no need for full JSON library just for one field
+        String id = body.replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+        
+        System.out.println("id = " + id);
+
+        // 4. Open browser
+        String url = pageUrl + "?id=" + id;
+        Desktop.getDesktop().browse(URI.create(url));
     }
 
 }
