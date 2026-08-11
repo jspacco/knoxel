@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
 #
-# Builds distributable zips: PocketBase binary + migrations/hooks + the
-# built client + the CLI wrapper + a double-click start script. Faculty
-# unzip, double-click, and go — see scripts/dist-template/README.txt for
-# what they see. See design.md section 17 ("Distribution zips").
-#
-# NEEDS JAIME (see design/changes.md): this still requires faculty to have
-# Node.js installed, which design.md section 2's goals list says shouldn't
-# be necessary. Flagging rather than silently deciding — bundling a Node
-# runtime (e.g. via `pkg`) would remove that requirement but is a bigger
-# change than this script attempts.
+# Builds distributable zips: a self-contained knoxel-server binary (compiled
+# with pkg — no Node.js install required) + the PocketBase binary +
+# migrations/hooks + the built client + a double-click start script. Faculty
+# unzip, double-click, and go — see scripts/dist-template/README.txt for what
+# they see. See design.md section 17 ("Distribution zips").
 #
 # Usage:
 #   scripts/package.sh                                  # mac-arm64 + windows-x64
-#   scripts/package.sh mac-arm64 mac-x64 windows-x64 linux-x64
+#   scripts/package.sh mac-arm64 windows-x64 linux-x64
 #
 set -euo pipefail
 
@@ -32,16 +27,22 @@ echo "Building client + server/pb_public once, shared across all targets..."
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
+echo ""
+echo "Compiling knoxel-server binaries with pkg..."
+(cd "$REPO_DIR" && npx pkg --target node24-macos-arm64 --output "$DIST_DIR/knoxel-server-macos-arm64" .)
+(cd "$REPO_DIR" && npx pkg --target node24-win-x64     --output "$DIST_DIR/knoxel-server-win-x64.exe" .)
+(cd "$REPO_DIR" && npx pkg --target node24-linux-x64   --output "$DIST_DIR/knoxel-server-linux-x64" .)
+chmod +x "$DIST_DIR/knoxel-server-macos-arm64" "$DIST_DIR/knoxel-server-linux-x64"
+
 package_target() {
   local target="$1"
-  local platform arch pb_name start_script
+  local platform arch pb_name start_script server_binary_src server_binary_name
   case "$target" in
-    mac-arm64)   platform=darwin  arch=arm64 pb_name=pocketbase      start_script=start.command ;;
-    mac-x64)     platform=darwin  arch=amd64 pb_name=pocketbase      start_script=start.command ;;
-    windows-x64) platform=windows arch=amd64 pb_name=pocketbase.exe  start_script=start.bat ;;
-    linux-x64)   platform=linux   arch=amd64 pb_name=pocketbase      start_script=start.sh ;;
+    mac-arm64)   platform=darwin  arch=arm64 pb_name=pocketbase      start_script=start.command server_binary_src="$DIST_DIR/knoxel-server-macos-arm64" server_binary_name=knoxel-server ;;
+    windows-x64) platform=windows arch=amd64 pb_name=pocketbase.exe  start_script=start.bat     server_binary_src="$DIST_DIR/knoxel-server-win-x64.exe" server_binary_name=knoxel-server.exe ;;
+    linux-x64)   platform=linux   arch=amd64 pb_name=pocketbase      start_script=start.sh      server_binary_src="$DIST_DIR/knoxel-server-linux-x64"  server_binary_name=knoxel-server ;;
     *)
-      echo "Unknown target: $target (expected mac-arm64, mac-x64, windows-x64, linux-x64)" >&2
+      echo "Unknown target: $target (expected mac-arm64, windows-x64, linux-x64 — mac-x64 has no compiled knoxel-server binary; add node24-macos-x64 to package.json's pkg.targets and rebuild if needed)" >&2
       exit 1
       ;;
   esac
@@ -52,7 +53,7 @@ package_target() {
   local work_dir stage_dir
   work_dir="$(mktemp -d)"
   stage_dir="$work_dir/knoxel"
-  mkdir -p "$stage_dir/server" "$stage_dir/scripts"
+  mkdir -p "$stage_dir/server"
 
   # Downloads straight into the staging dir — never touches the developer's
   # own server/pocketbase, so packaging other platforms doesn't clobber
@@ -62,10 +63,11 @@ package_target() {
   cp -R "$REPO_DIR/server/pb_migrations" "$stage_dir/server/pb_migrations"
   cp -R "$REPO_DIR/server/pb_hooks" "$stage_dir/server/pb_hooks"
   cp -R "$REPO_DIR/server/pb_public" "$stage_dir/server/pb_public"
-  cp "$REPO_DIR/scripts/knoxel-server.js" "$stage_dir/scripts/knoxel-server.js"
+  cp "$server_binary_src" "$stage_dir/$server_binary_name"
   cp "$TEMPLATE_DIR/$start_script" "$stage_dir/$start_script"
   cp "$TEMPLATE_DIR/README.txt" "$stage_dir/README.txt"
   chmod +x "$stage_dir/$start_script" 2>/dev/null || true
+  chmod +x "$stage_dir/$server_binary_name" 2>/dev/null || true
   chmod +x "$stage_dir/server/$pb_name" 2>/dev/null || true
 
   (cd "$work_dir" && zip -rq "$DIST_DIR/knoxel-$target.zip" knoxel)

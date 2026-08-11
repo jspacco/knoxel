@@ -32,15 +32,21 @@ const readline = require('readline')
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-const POCKETBASE_DIR    = path.join(__dirname, '..', 'server')
-const CLIENT_DIR        = path.join(__dirname, '..', 'client')
-const PB_BINARY         = path.join(POCKETBASE_DIR, 'pocketbase')
+// __dirname inside a pkg-compiled binary resolves into pkg's virtual snapshot
+// filesystem, not the real disk next to the executable — so PocketBase,
+// server/, and .env (none of which are baked into the snapshot) would not be
+// found there. Use the executable's real on-disk location instead when
+// running packaged; __dirname is correct for a normal `node` dev checkout.
+const BASE_DIR          = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..')
+const POCKETBASE_DIR    = path.join(BASE_DIR, 'server')
+const CLIENT_DIR        = path.join(BASE_DIR, 'client')
+const PB_BINARY         = path.join(POCKETBASE_DIR, process.platform === 'win32' ? 'pocketbase.exe' : 'pocketbase')
 const PB_URL            = 'http://127.0.0.1:8090'
 const HEALTH_TIMEOUT_MS = 30_000
 const HEALTH_POLL_MS    = 500
 
 // Load .env from project root (shell env takes priority)
-const envFile = path.join(__dirname, '..', '.env')
+const envFile = path.join(BASE_DIR, '.env')
 if (fs.existsSync(envFile)) {
   fs.readFileSync(envFile, 'utf8').split('\n').forEach(line => {
     const trimmed = line.trim()

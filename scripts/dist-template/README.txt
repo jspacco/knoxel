@@ -6,9 +6,8 @@ students on the same network connect to it with a browser.
 
 Requirements
 ------------
-Node.js must be installed (https://nodejs.org — the LTS version is fine).
-Nothing else: PocketBase (the actual server) is already bundled in here as
-a plain binary.
+None. Everything — the server wrapper and PocketBase (the actual database
+server) — is already bundled in here as plain binaries. No installs needed.
 
 First run
 ---------
@@ -39,8 +38,7 @@ Advanced: database admin access
 Knoxel manages its own PocketBase superuser account behind the scenes, so
 you're never asked to create one. If you want to log into PocketBase's own
 admin UI (http://127.0.0.1:8090/_/) to poke at the database directly, run
-this once from inside this folder (only needs Node/PocketBase, no server
-restart required):
+this once from inside this folder (no server restart required):
 
   server/pocketbase superuser upsert you@example.com your-own-password --dir server/pb_data
 

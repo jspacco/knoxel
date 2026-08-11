@@ -911,3 +911,114 @@ connect to pocketbase?"
    README.txt). This trades away a debugging convenience for removing a
    confirmed-broken, browser-dependent first-run step; say so if you'd
    rather the wrapper print/rotate a visible admin login instead.
+
+## 2026-08-11 — Compile knoxel-server into self-contained binaries with pkg, remove the Node.js requirement
+
+**Intent:** Jaime asked to close out the "NEEDS JAIME" item from the
+2026-08-08 entry — distribution zips still required Node.js to be installed
+on the faculty machine, which design.md section 2's goals list says
+shouldn't be necessary. This uses `@yao-pkg/pkg` to compile
+`scripts/knoxel-server.js` into a self-contained executable per platform, so
+the distribution zips no longer need Node at all.
+
+**Prompt:** "Use @yao-pkg/pkg to compile scripts/knoxel-server.js into
+self-contained executables for mac-arm64, windows-x64, and linux-x64. The
+output binaries should be named knoxel-server (with .exe on Windows). Update
+scripts/package.sh to build these binaries as part of the distribution zip
+process," plus specific requirements for the root package.json shape, the
+pkg config, the zip contents, and the start scripts invoking the binary
+directly instead of `node scripts/knoxel-server.js`.
+
+**Changes:**
+- Root `package.json` (new) already existed (used for the `sharp` dependency
+  used by `scripts/build-atlas.js`) — added `@yao-pkg/pkg` as a
+  devDependency, a `"bin": "scripts/knoxel-server.js"` field, and the `pkg`
+  config block exactly as specified (`targets: ["node24-macos-arm64",
+  "node24-win-x64", "node24-linux-x64"]`, `outputPath: "dist/"`, `assets:
+  []`).
+- `scripts/knoxel-server.js` — the one real code fix pkg's snapshot
+  filesystem required, caught by actually compiling and running the binary
+  rather than by reading the code: `POCKETBASE_DIR`/`CLIENT_DIR`/the `.env`
+  path were all computed from `__dirname`. Inside a pkg-compiled binary,
+  `__dirname` resolves into pkg's virtual snapshot filesystem (a read-only
+  image baked into the executable), not the real disk next to it — since
+  `server/`, `client/`, and `.env` are never bundled into that snapshot
+  (`assets: []`, and they shouldn't be — they're per-install, not part of the
+  program), every path built from `__dirname` pointed at files that don't
+  exist in the snapshot, and PocketBase would never be found. Fixed by
+  introducing `BASE_DIR = process.pkg ? path.dirname(process.execPath) :
+  path.join(__dirname, '..')` — real disk, relative to the executable itself,
+  when packaged; unchanged `__dirname`-relative behavior for a plain `node
+  scripts/knoxel-server.js` dev checkout. Also fixed `PB_BINARY` to pick
+  `pocketbase.exe` vs `pocketbase` by `process.platform` instead of always
+  `pocketbase` — a latent bug (not pkg-specific) that only mattered once
+  distribution zips for other platforms were being genuinely tested, since
+  previously the wrapper only ever ran on whatever platform built it.
+- `scripts/package.sh` — added a step that runs `npx pkg` three times (once
+  per target, each with an explicit `--target`/`--output` so the output
+  filenames are exactly `dist/knoxel-server-macos-arm64`,
+  `dist/knoxel-server-win-x64.exe`, `dist/knoxel-server-linux-x64` regardless
+  of pkg's own default multi-target naming convention) before the per-target
+  zip loop. Each target's staging directory now copies the matching compiled
+  binary in as `knoxel-server` (or `knoxel-server.exe` on Windows) at the zip
+  root instead of `scripts/knoxel-server.js` — the `scripts/` directory is no
+  longer staged into the zip at all, since nothing in it is needed anymore.
+  Dropped `mac-x64` from the supported-target list: the task's pkg config
+  only lists three targets (no `node24-macos-x64`), so there's no compiled
+  binary for it; the case statement now errors clearly if someone asks for it
+  rather than silently reusing the wrong-arch binary. (`mac-x64` was already
+  excluded from the default target set before this change.)
+- `scripts/dist-template/start.command`/`start.bat`/`start.sh` — removed the
+  Node.js version/presence check entirely (no longer applicable) and changed
+  the launch line to invoke `./knoxel-server` / `knoxel-server.exe` directly
+  instead of `node scripts/knoxel-server.js`.
+- `scripts/dist-template/README.txt` — updated the "Requirements" section
+  (was "Node.js must be installed..."; now "None... everything is already
+  bundled as plain binaries") and the admin-superuser advanced-use note that
+  used to say "only needs Node/PocketBase."
+- No `sharp`-related pkg failures encountered — pkg does print a warning
+  about not being able to bundle `sharp`'s native `build/Release` and
+  `vendor/lib` directories on every target, but this is harmless noise:
+  `scripts/knoxel-server.js` never requires `sharp` (that's
+  `scripts/build-atlas.js`'s dependency, an unrelated dev-time tool), pkg is
+  just warning about it because it's present in the root `package.json`'s
+  `dependencies`. Flagging per the task's instructions since it looked like
+  exactly the kind of pkg-and-native-modules issue to watch for, even though
+  it turned out to be inert.
+- Verified end-to-end, not just by reading the scripts back: ran
+  `scripts/package.sh mac-arm64` for real (compiled all three binaries —
+  `file` confirms `knoxel-server-macos-arm64` is a Mach-O arm64 executable,
+  the win/linux ones are ~70-90MB each), unzipped the resulting
+  `dist/knoxel-mac-arm64.zip` into a scratch directory, confirmed its
+  contents exactly match the required layout (`knoxel-server`,
+  `server/{pocketbase,pb_migrations,pb_hooks,pb_public}`, `start.command`,
+  `README.txt` — no `scripts/` directory, no `.js` file), ran
+  `./start.command` (fed via a FIFO to answer the interactive world-selection
+  prompts, since a plain piped-and-closed stdin caused the second
+  `readline.question()` call to hang forever waiting on already-EOF'd
+  stdin — a pre-existing quirk of `knoxel-server.js`'s
+  `readline.createInterface`-per-prompt pattern, not new here, just newly
+  visible while scripting a fully automated test), and confirmed: PocketBase
+  started and bound `0.0.0.0:8090`, the world-creation prompts worked and set
+  `is_active: true` on the new world (checked via the REST API), the built
+  client was served with a `200` from PocketBase itself, and `ps aux` showed
+  only `./knoxel-server` and `server/pocketbase` running — no `node` process
+  anywhere in that process tree. Cleaned up the scratch directory and killed
+  both processes afterward.
+- design.md sections affected: none — this closes the Node.js-dependency gap
+  in section 17 ("Deployment")/section 2's goals list without changing the
+  architecture those sections already describe.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None for this task specifically — it was itself the
+follow-up to a previously flagged item, and pkg compiled and ran cleanly on
+the first real attempt for all three targets. One small pre-existing wrinkle
+surfaced during verification, noted above but not fixed since it's out of
+this task's scope: `knoxel-server.js`'s interactive world-selection prompts
+can hang if stdin is piped and closes between prompts (each `prompt()` call
+opens/closes its own `readline` interface on `process.stdin`, and a second
+interface opened after stdin's write end has already closed doesn't fire).
+This doesn't affect real interactive terminal use (the whole reason it went
+unnoticed until now) — only fully-scripted/non-interactive stdin. Worth
+knowing about if `--world`/`--new` ever grow a fully-unattended mode that
+pipes answers in.

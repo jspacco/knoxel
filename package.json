@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": "scripts/knoxel-server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,5 +13,17 @@
   "type": "commonjs",
   "dependencies": {
     "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.22.0"
+  },
+  "pkg": {
+    "targets": [
+      "node24-macos-arm64",
+      "node24-win-x64",
+      "node24-linux-x64"
+    ],
+    "outputPath": "dist/",
+    "assets": []
   }
 }
