@@ -1022,3 +1022,182 @@ This doesn't affect real interactive terminal use (the whole reason it went
 unnoticed until now) — only fully-scripted/non-interactive stdin. Worth
 knowing about if `--world`/`--new` ever grow a fully-unattended mode that
 pipes answers in.
+
+## 2026-08-11 — API rules migration; wire blocks + turtle position to PocketBase
+
+**Intent:** Jaime asked for two things: (1) an API-rules migration opening up
+`blocks`/`players`/`programs`/`worlds` so the client can write directly
+against PocketBase instead of everything being superuser-only, and (2) to
+actually wire the client up to use those rules — `placeBlock()` writing to
+the server, existing blocks hydrating on load, other players' blocks
+arriving live, and turtle position being written so remote players are
+visible. Until now the schema/hooks existed (Stage 3/4) but nothing in the
+client ever talked to `blocks` or wrote `turtle_x/y/z` at all — the whole
+multiplayer half of design.md was schema without wiring.
+
+**Prompt:** Two-part: "Migration to set API rules on all collections" with
+exact rule values per collection and a migration-syntax example, plus "Wire
+block writes and real-time subscriptions" with example `placeBlock`/hydrate/
+subscribe snippets and a request to verify (and add if missing) that turtle
+position gets written on each interpreter step.
+
+**Changes:**
+
+*Migration 005:*
+- `server/pb_migrations/005_api_rules.js` (new) — sets `listRule`/`viewRule`/
+  `createRule`/`updateRule` to `''` (or `null` per collection, exactly as
+  specified) and `deleteRule = null` (superusers only) on all four
+  collections. The `collection.xRule = ...; app.save(collection)` syntax in
+  the prompt matches this repo's PocketBase 0.39.10 exactly — confirmed
+  against `003_stage4_auth.js`, which already uses the identical property
+  names successfully, and re-confirmed empirically by actually running the
+  migration against a real PocketBase instance and reading the rules back
+  via the REST API (see Verified below). No API mismatch to flag — the
+  syntax in the prompt was correct as given.
+- **NEEDS JAIME** — real security regression, implemented as specified but
+  flagging loudly: `003_stage4_auth.js` gave `players.createRule`/
+  `updateRule` and `programs.createRule` conditional rules that branch on
+  `world_id.auth_mode` specifically so accounts-mode worlds require the
+  request to be authenticated as the record in question (design.md section
+  7's whole reason accounts mode exists). This migration replaces all three
+  with flat `''` (always public), because that's what was specified and it's
+  also what the write flow below needs (the browser writes directly with no
+  server-side token check either way). Net effect: **in an accounts-mode
+  world, any unauthenticated request can now create or update any player's
+  record, or attach a program to any player_id** — the exact thing 003's
+  branching existed to prevent. If accounts mode is meant to keep that
+  guarantee, this migration needs a follow-up that puts the auth_mode branch
+  back on just those three rules while leaving the rest (blocks, the
+  always-public reads) as specified.
+- The down migration sets all five rule properties on all four collections
+  to `null`, per "sets everything back to null" — literally, not a
+  restoration of 003's original values (which had some rules already public,
+  e.g. `programs.listRule`/`viewRule`/`worlds.listRule`/`viewRule`). Down of
+  005 is therefore a stricter lockdown than the pre-005 state, not an undo of
+  005 specifically. Flagging since "down" conventionally means "restore what
+  was there before," and this doesn't quite do that — but it's what was
+  asked for and is safe (never less restrictive than before).
+- Verified against a real, freshly-migrated PocketBase 0.39.10 instance (not
+  read back from the migration file): `migrate up` applied 001-005 cleanly;
+  fetched all four collections via the superuser API and confirmed every
+  rule string/null matches the spec exactly; ran `migrate down 1` → `migrate
+  up` and confirmed the round trip (all-null after down, spec values again
+  after re-up) with no errors either direction.
+
+*Client wiring (blocks + turtle position):*
+- `client/src/lib/pocketbase.ts` — added a `BlockRecord` interface (was
+  missing; `WorldRecord`/`PlayerRecord`/`ProgramRecord` already existed for
+  the other three collections).
+- `client/src/hooks/useMultiplayerSync.ts` (new) — hydrates existing blocks
+  for the active world on load (`getFullList` + `placeBlock(..., animate:
+  false)`, using the `animate` parameter `placeBlock` already had exactly
+  for this), subscribes to `blocks/*` and renders other players' creates/
+  updates live, and exposes `onBlockPlaced`/`onTurtleMoved` callbacks that
+  POST/PATCH to the server. Wired into `App.tsx` — passed straight into
+  `useTurtle`'s existing `onBlockPlaced`/`onTurtleMoved` options, which were
+  already there and already documented ("Used to sync multiplayer") but had
+  never actually been connected to anything.
+- **Implementation-location judgment call** — the prompt's snippets showed
+  this logic living "in useWorld.ts" inside `placeBlock()` itself. Kept
+  `WorldScene`/`placeBlock()` untouched instead: that file's own header
+  comment establishes it as a plain Three.js renderer with zero knowledge of
+  PocketBase, world ids, or player ids, and network state living in hooks
+  (`usePocketbase`, `useSharedLink`) rather than the scene class is the
+  pattern the rest of the codebase already follows. `onBlockPlaced`/
+  `onTurtleMoved` were sitting right there as the intended seam. Small,
+  clearly-implied call per CLAUDE.md; the resulting behavior is identical to
+  what the prompt asked for.
+- **Correctness fix over the literal snippet** — the prompt's `placeBlock`
+  example was a bare `.create()`. `blocks` has a unique index on `(world_id,
+  x, y, z)` specifically so re-placing a block is "last write wins via
+  upsert" (design.md section 6 — and `WorldScene.placeBlock`'s own existing
+  doc comment already promised this server-side behavior, years before any
+  server write existed to keep that promise). A bare create would 400 every
+  time a program overwrites a position it already touched, or two players
+  build over the same spot. `upsertBlock()` creates, and on the resulting
+  `validation_not_unique` 400 falls back to finding and updating the
+  existing record instead. Correspondingly the realtime handler treats
+  `update` the same as `create` (the prompt's snippet only handled
+  `create`), so a block getting overwritten is still mirrored live to other
+  players — without that, other clients would silently keep showing the old
+  block forever after any overwrite.
+- Two real bugs, neither guessable from reading the code, both caught only
+  by actually running this against a live PocketBase instance with
+  Playwright:
+  1. **The PocketBase JS SDK auto-cancels concurrent requests to the same
+     collection+method by default** ("auto cancellation" — a newer request
+     to the same endpoint aborts the previous one, meant for
+     search-as-you-type UIs). A program placing more than one block within
+     the request round-trip window had every write but the last one in that
+     burst silently aborted (`ClientResponseError: The request was
+     aborted`) — confirmed by intercepting the actual network traffic, not
+     inferred. Every `blocks` create/getFirstListItem/update call in
+     `upsertBlock` now passes `{ requestKey: null }` to opt out. Left the
+     turtle-position `players.update` call on the *default* auto-cancel
+     behavior deliberately — there, cancelling a superseded in-flight write
+     in favor of the newest one is correct, not a bug, since only the
+     latest position ever matters.
+  2. **`WorldScene.blockCount` is a live getter over imperative Three.js
+     state, not React state.** A client that never places a block itself
+     (hydration only, or another player's blocks arriving via realtime)
+     never re-renders on its own, so the Panel's "Blocks" stat silently went
+     stale — confirmed by screenshotting a second browser: the 3D scene
+     correctly showed a classmate's blocks appearing in real time, but the
+     "Blocks: N" counter stayed at its old value the whole time. Added a
+     trivial `bump` state setter in `useMultiplayerSync`, called once after
+     hydration finishes and once per realtime event, purely to force the
+     re-render that makes the existing `blockCount={world?.blockCount ?? 0}`
+     prop in `App.tsx` re-read the live count — mirrors how the tick loop's
+     own `setTick()` already does this incidentally during a run.
+- Turtle position: confirmed (per the prompt's "verify... if it's not being
+  written, add it") that nothing anywhere wrote `turtle_x/y/z/facing` — the
+  fields existed in the schema and the `PlayerRecord` type, completely
+  unused. `useMultiplayerSync`'s `onTurtleMoved` now PATCHes the player
+  record on the same throttle `useTurtle.ts` already uses to publish
+  transform updates (~10Hz during a run, immediately on manual moves) — no
+  new throttling added, that cadence already existed for the UI and is a
+  reasonable network rate as-is.
+- **Not implemented — out of scope of what was asked**: nothing renders
+  *other* players' turtles. The prompt's exact ask was "verify that turtle
+  position is written... so remote turtles appear for other clients," and
+  the write side is now real, but no code anywhere subscribes to `players`
+  or creates turtle meshes for anyone but the local player — confirmed by
+  grepping the client before starting, there was nothing there to begin
+  with. Rendering remote turtles is a natural next step but a distinct
+  feature (subscribe to `players/*`, maintain a mesh per other player,
+  handle join/leave) that wasn't part of this request.
+- Verified end-to-end against a real running PocketBase 0.39.10 instance
+  (migrations 001-005 applied fresh) using a scripted, programmatically
+  driven two-browser-context Playwright session — not just by reading the
+  code back:
+  - Player A logs in, runs `flag.json`; confirmed via the PocketBase REST
+    API (not just the local UI) that `blocks` records were created with the
+    correct `world_id`/`player_id`/`x`/`y`/`z`/`block_id`, and that player
+    A's `players` record's `turtle_x`/`turtle_y`/`turtle_z` had advanced from
+    spawn.
+  - Player B logs in fresh (never clicks Run) after A has already placed
+    blocks; confirmed hydration rendered them.
+  - With B still idle, A kept running; confirmed via screenshot (not just a
+    stat counter, after finding and fixing the staleness bug above) that
+    new blocks appeared live in B's own 3D view with no action from B.
+  - Confirmed the "last write wins" upsert path specifically: re-ran a
+    program from the same origin against a world with pre-existing blocks
+    at the same coordinates and confirmed the `validation_not_unique` →
+    find-existing → update path completes with no unhandled error and the
+    realtime `update` event reaches other clients.
+  - All test PocketBase instances, worlds, and players were scratch data in
+    `/tmp`, discarded after verification — the real `server/pb_data/` was
+    never touched by any of this.
+- design.md sections affected: none — this implements section 6 (blocks
+  upsert semantics) and section 11 (multiplayer shared world) as already
+  specified, plus closes the players/turtle-position half of section 7 that
+  was schema-only until now.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** Two things, both flagged above but repeating here since
+they're the important ones: (1) the accounts-mode security regression on
+`players.createRule`/`updateRule` and `programs.createRule` — implemented
+exactly as specified, but it removes a guarantee 003 was written specifically
+to provide; and (2) remote turtles (other players' turtle meshes) still don't
+render anywhere — the position is now correctly written and available, just
+nothing reads it for anyone but the local player yet.

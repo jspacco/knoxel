@@ -32,6 +32,16 @@ export interface PlayerRecord {
   turtle_facing: 'north' | 'south' | 'east' | 'west'
 }
 
+export interface BlockRecord {
+  id: string
+  world_id: string
+  player_id: string
+  x: number
+  y: number
+  z: number
+  block_id: string
+}
+
 export interface ProgramRecord {
   id: string
   player_id: string

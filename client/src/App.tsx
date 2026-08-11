@@ -13,6 +13,7 @@ import { MyPrograms } from './components/MyPrograms'
 import { useWorld } from './hooks/useWorld'
 import { useTurtle } from './hooks/useTurtle'
 import { usePocketbase } from './hooks/usePocketbase'
+import { useMultiplayerSync } from './hooks/useMultiplayerSync'
 import { useSharedLink } from './hooks/useSharedLink'
 import { POCKETBASE_ENABLED } from './lib/pocketbase'
 import type { ParsedProgram, Vec3 } from './lib/interpreter'
@@ -26,8 +27,9 @@ export default function App() {
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [messages, setMessages] = useState<string[]>([])
 
-  const turtle = useTurtle({ world })
   const pb = usePocketbase()
+  const multiplayer = useMultiplayerSync({ world, activeWorld: pb.world, player: pb.player })
+  const turtle = useTurtle({ world, onBlockPlaced: multiplayer.onBlockPlaced, onTurtleMoved: multiplayer.onTurtleMoved })
 
   const pushMessage = useCallback((message: string) => {
     setMessages((previous) => [...previous.slice(-19), message])
