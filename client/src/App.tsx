@@ -156,7 +156,9 @@ export default function App() {
           )
         }
       >
-        {pb.player && <MyPrograms player={pb.player} onLoaded={handleLoaded} onError={pushMessage} />}
+        {pb.player && pb.world && (
+          <MyPrograms player={pb.player} activeWorld={pb.world} onLoaded={handleLoaded} onError={pushMessage} />
+        )}
 
         <ProgramLoader
           programs={programs}

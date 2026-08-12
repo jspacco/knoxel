@@ -1201,3 +1201,95 @@ exactly as specified, but it removes a guarantee 003 was written specifically
 to provide; and (2) remote turtles (other players' turtle meshes) still don't
 render anywhere — the position is now correctly written and available, just
 nothing reads it for anyone but the local player yet.
+
+## 2026-08-12 — Live-update the "My programs" list on upload; fix cross-world leak
+
+**Intent:** Jaime reported that a student uploading a program from VS Code
+(the Java client's `/upload` route) never sees it appear in the browser —
+they had to manually refresh or log out/in. The list only ever loaded once,
+on mount.
+
+**Prompt:** Wire a PocketBase realtime subscription into "whatever component
+or hook manages the program list" so a `programs` create event for the
+current player + active world prepends into the list live, with example
+subscribe/unsubscribe snippets; keep most-recent-first ordering; and verify
+the *initial* fetch uses the same player+world filter so students only ever
+see their own programs.
+
+**Changes:**
+- `client/src/components/MyPrograms.tsx` — this is the component (found by
+  grepping for where the program list actually lives; it was already the
+  Stage-4 "student can see program list" component, just never updated after
+  first load).
+  - **Bug found while checking the initial-fetch filter, exactly the thing
+    the prompt asked to verify**: it only filtered on `player_id`, not
+    `world_id` at all, even though `programs` has its own `world_id` field
+    independent of the player's (`upload.pb.js` stamps a program with
+    *whatever world was active at upload time*, which can diverge from the
+    player's own `world_id` — confirmed this is a real, not theoretical,
+    divergence by checking `upload.pb.js` and testing it directly). A
+    student who'd used this tool across more than one course/world on the
+    same server would see every program from every world mixed together.
+    Fixed by adding `&& world_id = {:world}` to the filter, and threading a
+    new required `activeWorld: WorldRecord` prop through from `App.tsx`
+    (`pb.world` — the component previously had no way to know the active
+    world at all).
+  - Added the realtime subscription, filtered identically (`action ===
+    'create'`, matching `player_id` and `world_id`), prepending into
+    `programs` state — same shape as the prompt's snippet, with two small,
+    deliberate deviations:
+    1. Used the SDK's per-callback `UnsubscribeFunc` (the promise
+       `subscribe()` resolves to) instead of the prompt's
+       `pb.collection('programs').unsubscribe('*')`. The docs recommend the
+       former specifically because `unsubscribe('*')` tears down *every*
+       listener registered on that topic for that collection, not just this
+       component's — harmless today (nothing else subscribes to
+       `programs`), but the precise form doesn't rely on that staying true.
+       Handled the subscribe-is-async-but-effect-cleanup-is-sync race with
+       a `cancelled` flag (same pattern already used for the initial fetch
+       in this same file, and for hydration in `useMultiplayerSync.ts`).
+    2. Added a dedupe guard (`prev.some(p => p.id === e.record.id)`) before
+       prepending — the initial fetch and the subscription both start on
+       mount independently, so a create landing in that small window could
+       otherwise arrive from both and render as a duplicate list entry/React
+       key collision. Small, clearly-implied correctness addition.
+  - Sort order: the initial fetch already sorted `-submitted_at`
+    (most-recent-first) — no change needed there. Realtime creates prepend
+    directly to the front, which is correct for "just happened," matching
+    the prompt's intent.
+  - `client/src/App.tsx` — passes `pb.world` through as the new
+    `activeWorld` prop; the `<MyPrograms>` render is now gated on `pb.player
+    && pb.world` (was `pb.player` alone) since the component can't do
+    anything meaningful without a world to scope to.
+- No API-mismatch to flag — `subscribe`/`unsubscribe` matched the installed
+  SDK (`pocketbase@0.27.1`) exactly as shown in its own README.
+- Verified end-to-end against a real running PocketBase 0.39.10 instance with
+  a scripted Playwright session, not just by reading the diff:
+  - Seeded one player and two worlds; created a program under the player's
+    active world and, separately, one under the *other* world for the same
+    player id. Logged in as that player fresh: the initial list showed
+    exactly the active-world program, confirming the cross-world leak is
+    fixed.
+  - With the tab still open (no reload), POSTed two more programs directly
+    to `programs` — one matching the active world, one matching the other
+    world — simulating what the Java client's `/upload` route produces.
+    The matching one appeared at the top of the list within ~1.5s with no
+    page action; the other-world one never appeared. Selecting the
+    newly-arrived program and confirming the Run button became enabled
+    proved it's not just rendered but actually loaded/runnable, per "the
+    student should be able to select and run it without any manual
+    refresh."
+  - First pass of this test had a false failure (Run button stayed
+    disabled) — turned out to be the test's own fake program payload
+    having zero instructions, which `MyPrograms.loadProgram()` correctly
+    rejects before calling `onLoaded`; not a bug, fixed the test fixture.
+- design.md sections affected: none — this implements the "student can see
+  their program list" verify step (CLAUDE.md Stage 4) the way it was always
+  meant to work, plus a same-scope correctness fix (world filter) surfaced
+  by the verification step the prompt explicitly asked for.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None. Both requested pieces (live subscription, verified/
+fixed initial filter) are done and confirmed working against a real server;
+no ambiguous decisions came up beyond the two small, clearly-implied
+deviations noted above.
