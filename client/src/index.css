@@ -577,12 +577,22 @@ label.field select {
 
 .identity {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin-top: 6px;
   font-size: 13px;
 }
 
+.identity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .identity-name {
   font-weight: 600;
+}
+
+.identity-email {
+  line-height: 1.2;
 }

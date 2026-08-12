@@ -1485,3 +1485,52 @@ separately."
 
 **NEEDS JAIME:** None — straightforward, matches the prompt exactly, no
 ambiguous decisions.
+
+## 2026-08-12 — Show email next to display name in the panel header
+
+**Intent:** Jaime wants students to be able to confirm they logged in with
+the correct Knox email — `display_name` is self-chosen and cosmetic (design.md
+section 6: "`email` is the authoritative identity field"), so a student could
+easily not notice they typo'd their email or are still logged in as someone
+else, with nothing in the UI to catch it.
+
+**Prompt:** "Show email in UI. Wherever the player's display name appears in
+the panel (login confirmation, player info section, or header), add the
+email below or next to it... Small, secondary text styling for the email.
+Commit separately."
+
+**Changes:**
+- Grepped the client for every place `display_name` reaches the DOM before
+  touching anything: the only spot is the panel header's identity block in
+  `App.tsx` (`pb.player.display_name` next to a "switch player" button,
+  passed into `Panel`'s `header` slot). `Login.tsx` has no post-login
+  confirmation screen — the login form is simply replaced by the panel the
+  moment `pb.player` is set — and `MyPrograms.tsx` only uses `display_name`
+  as data (the `playerName` field handed to the interpreter), never renders
+  it. So one change site, not three.
+- `client/src/App.tsx` — wrapped the existing `identity-name` span and a new
+  `identity-email` span in an `identity-info` column, so the name and email
+  stack vertically while "switch player" stays aligned to the right of both.
+  Reused the existing `muted small` utility classes (already the codebase's
+  established secondary-text convention — see `Login.tsx`'s field hints and
+  `Panel.tsx`'s "Nothing yet."/animation-skip notes) instead of inventing new
+  styling for "small, secondary text."
+- `client/src/index.css` — `.identity` switched from `align-items: baseline`
+  to `center` now that its two children are a two-line block and a button
+  rather than two inline spans; added `.identity-info` (column, small gap)
+  and a `.identity-email` rule for line-height only, since color/size already
+  come from `muted small`.
+- Verified in a real browser session (Playwright against a scratch PocketBase
+  instance, not just by reading the JSX): logged in as display name
+  "jspacco" / email "jspacco@knox.edu" and confirmed via the DOM
+  (`.identity-name`/`.identity-email` text content) and a screenshot that it
+  renders exactly as specified — "jspacco" on one line, "jspacco@knox.edu"
+  smaller and muted directly beneath it, "switch player" still to the right.
+  `npx tsc --noEmit` clean. Scratch PocketBase data was in `/tmp`, discarded
+  after verification.
+- design.md sections affected: none — this surfaces the existing `email`
+  field (already the authoritative identity field per section 6) more
+  visibly; no schema or behavior change.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None.

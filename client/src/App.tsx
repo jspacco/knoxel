@@ -167,7 +167,10 @@ export default function App() {
         header={
           pb.player && (
             <div className="identity">
-              <span className="identity-name">{pb.player.display_name}</span>
+              <div className="identity-info">
+                <span className="identity-name">{pb.player.display_name}</span>
+                <span className="identity-email muted small">{pb.player.email}</span>
+              </div>
               <button type="button" className="link-button" onClick={pb.logout}>
                 switch player
               </button>
