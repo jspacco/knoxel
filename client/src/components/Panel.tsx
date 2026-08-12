@@ -7,6 +7,7 @@
 
 import type { ReactNode } from 'react'
 import { cssColor } from '../lib/blockColors'
+import { POCKETBASE_ENABLED } from '../lib/pocketbase'
 import {
   MAX_TICKS_PER_SECOND,
   MIN_TICKS_PER_SECOND,
@@ -117,21 +118,28 @@ export function Panel(props: PanelProps) {
             Stop
           </button>
 
-          <label className="slider-label" htmlFor="speed">
-            Speed
-            <span className="slider-value">
-              {ticksPerSecond} ticks/s{ticksPerSecond === 20 ? ' (Minecraft)' : ''}
-            </span>
-          </label>
-          <input
-            id="speed"
-            type="range"
-            min={MIN_TICKS_PER_SECOND}
-            max={MAX_TICKS_PER_SECOND}
-            value={ticksPerSecond}
-            onChange={(event) => onTicksPerSecondChange(Number(event.target.value))}
-          />
-          {!smooth && <p className="muted small">Above 20 ticks/s animation is skipped — blocks appear instantly.</p>}
+          {/* Multiplayer runs at a fixed 20 ticks/s (Minecraft rate) so every
+              student's view of a shared build stays in sync — the speed
+              slider only makes sense solo, where nothing else is watching. */}
+          {!POCKETBASE_ENABLED && (
+            <>
+              <label className="slider-label" htmlFor="speed">
+                Speed
+                <span className="slider-value">
+                  {ticksPerSecond} ticks/s{ticksPerSecond === 20 ? ' (Minecraft)' : ''}
+                </span>
+              </label>
+              <input
+                id="speed"
+                type="range"
+                min={MIN_TICKS_PER_SECOND}
+                max={MAX_TICKS_PER_SECOND}
+                value={ticksPerSecond}
+                onChange={(event) => onTicksPerSecondChange(Number(event.target.value))}
+              />
+              {!smooth && <p className="muted small">Above 20 ticks/s animation is skipped — blocks appear instantly.</p>}
+            </>
+          )}
 
           <label className="checkbox-label">
             <input

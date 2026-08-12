@@ -1429,3 +1429,59 @@ down migration has therefore never actually worked; `006`'s own down
 migration (written fresh for this task) uses the correct API and was verified
 with a real `migrate down 1` → `migrate up` round trip. Say the word if you'd
 like `004` fixed to match.
+
+## 2026-08-12 — Hide the tick-rate slider in multiplayer
+
+**Intent:** Jaime pointed out the speed slider only makes sense solo — in a
+shared multiplayer world, letting one student's client run the tick loop
+faster or slower than everyone else's doesn't make sense (the server isn't
+ticking anything; each client interprets the same program JSON at its own
+local rate). Multiplayer should stay fixed at 20 ticks/second (the Minecraft
+reference rate) and the slider shouldn't be there to change it.
+
+**Prompt:** "Hide tick rate slider in multiplayer. The speed slider only
+makes sense in solo/static mode. In multiplayer (when VITE_POCKETBASE_URL is
+set), hide the slider entirely. Tick rate is fixed at 20 ticks/second in
+multiplayer — do not allow the client to change it. Check
+import.meta.env.VITE_POCKETBASE_URL — if set, do not render the slider
+component. If unset (static/solo mode), render it as normal. Commit
+separately."
+
+**Changes:**
+- `client/src/components/Panel.tsx` — wrapped the Speed `<label>`/`<input
+  type="range">`/the "animation is skipped above 20 ticks/s" hint paragraph
+  in `{!POCKETBASE_ENABLED && (...)}`. Used the existing `POCKETBASE_ENABLED`
+  constant from `lib/pocketbase.ts` (`Boolean(import.meta.env.VITE_POCKETBASE_URL)`)
+  rather than re-checking `import.meta.env.VITE_POCKETBASE_URL` directly a
+  second time — it's the exact same check already used everywhere else in the
+  client (`App.tsx`, `usePocketbase.ts`) to distinguish solo/static from
+  multiplayer, so duplicating the raw env-var check here would just be a
+  second place for the two to drift apart.
+- No change needed to enforce the "fixed at 20, client can't change it" half
+  of the ask: `useTurtle.ts`'s `DEFAULT_TICKS_PER_SECOND` is already `20`,
+  and grepping the client confirmed the slider's `onChange` (wired through
+  `Panel`'s `onTicksPerSecondChange` prop to `useTurtle.setTicksPerSecond`)
+  is the *only* code path that ever calls it — no keybinding or other control
+  touches tick rate. Hiding the slider removes the only way a student could
+  change it, so multiplayer now simply never calls `setTicksPerSecond` and
+  stays at the 20 default.
+- Verified in two real (non-headless-limited) browser sessions via
+  Playwright, not just by reading the JSX back: built the client once with no
+  `VITE_POCKETBASE_URL` (served via `vite preview`) and confirmed `#speed`
+  exists and the Speed label/slider render normally; built again with
+  `VITE_POCKETBASE_URL=/` against a real scratch PocketBase instance, logged
+  in as a fresh open-mode player, and confirmed `#speed` is entirely absent
+  from the DOM (`locator('#speed').count() === 0`) — screenshotted both for a
+  visual check, not just the DOM query. The "Follow turtle with camera"
+  checkbox (also in the Run section) is unaffected and still renders in both
+  modes, immediately after Run/Reset/Stop. `npx tsc --noEmit` clean. All
+  scratch PocketBase data was in `/tmp`, discarded after verification —
+  Jaime's own running dev instance was not touched.
+- design.md sections affected: none — section 11 already states "20
+  ticks/second... is the default and the reference rate" and section 13's
+  speed-slider description doesn't distinguish solo from multiplayer, so this
+  is a UI-scoping fix rather than a spec change.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None — straightforward, matches the prompt exactly, no
+ambiguous decisions.
