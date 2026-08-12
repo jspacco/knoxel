@@ -1293,3 +1293,139 @@ see their own programs.
 fixed initial filter) are done and confirmed working against a real server;
 no ambiguous decisions came up beyond the two small, clearly-implied
 deviations noted above.
+
+## 2026-08-12 — Player avatars at camera position; turtle and camera persist across reload
+
+**Intent:** Jaime said the social multiplayer experience was missing — players
+could see each other's blocks appear, but not each other. The player avatar
+needed to represent the camera (where a student is looking from), not the
+turtle, since design.md section 12/13 already establishes those as separate
+objects. Turtle position was already schema-backed but not restored on
+reload, and camera position wasn't persisted at all — a returning student
+always started back at spawn/default view instead of where they left off.
+
+**Prompt:** Three things: (1) player avatar = camera position, with new
+`camera_x/y/z/yaw` fields on `players` (migration `006_add_camera_position.js`,
+nullable, default 0), written throttled to once per 500ms max as the camera
+moves, rendered by other clients as a ~0.5×1 colored box with a floating
+name tag, color hashed from player id; (2) turtle position (already-existing
+`turtle_x/y/z/facing` fields) written on manual moves (IJKL/Q/E), not just
+during program runs, and restored from the player record on login/reload
+(spawn at origin as usual if all zero/null); (3) camera position restored
+from the player record on reload, before rendering.
+
+**Changes:**
+- `server/pb_migrations/006_add_camera_position.js` (new) — adds
+  `camera_x`/`camera_y`/`camera_z`/`camera_yaw` (`NumberField`, not
+  `required`) to `players`, same reasoning as `turtle_x/y/z` in
+  `001_initial_schema.js`: PocketBase's `NumberField.required` means
+  "non-zero," and a camera sitting at `x=0`/`z=0` is ordinary — the field's
+  own zero value already gives "nullable, default 0" with no extra config.
+  **Bug caught while writing the down migration, not asked about but fixed
+  since it would have broken this migration's own rollback**: copied
+  `004_is_active_world.js`'s down-migration pattern
+  (`collection.fields.remove(field.id)`) at first, but `FieldsList` has no
+  `remove` method on this PocketBase version — confirmed by actually running
+  `migrate down 1` and reading the real error (`TypeError: Object has no
+  member 'remove'`), then checking `pb_data/types.d.ts` for the actual API
+  (`removeByName`/`removeById`, not `remove`). Used `removeByName` here.
+  Didn't touch `004`'s own (pre-existing, same-shaped) bug — out of scope of
+  what was asked, flagging below instead.
+- `client/src/lib/pocketbase.ts` — added the four camera fields to
+  `PlayerRecord`, and a `playerLabel()` helper (display name, falling back to
+  the email's local part) shared by the avatar-hydration and realtime-sync
+  paths in `useMultiplayerSync.ts`.
+- `client/src/components/PlayerAvatar.tsx` (new) — `PlayerAvatarMesh`: a
+  plain `THREE.BoxGeometry(0.5, 1, 0.5)` plus a nameplate sprite, no React
+  component, same convention as `Turtle.tsx`. Exported `makeNameplate()` from
+  `Turtle.tsx` instead of duplicating the canvas-sprite code — it was already
+  exactly what a floating name tag needs.
+- `client/src/hooks/useWorld.ts` (`WorldScene`) — added
+  `getCameraTransform()` (position + yaw, derived from the camera's
+  quaternion via `Euler('YXZ')`, valid in both orbit and first-person mode)
+  and `restoreCameraTransform(position, yaw)` (sets the camera directly, then
+  re-derives `fpYaw`/orbit target the same way entering/leaving first-person
+  already does, so it doesn't fight whichever mode is active). Added
+  `upsertPlayerAvatar()`/`removePlayerAvatar()` methods and a
+  `playerAvatars` map, disposed alongside turtles in `dispose()`.
+- `client/src/hooks/useMultiplayerSync.ts` — three additions: (1) hydrates
+  every other player already in the world once (`getFullList` filtered to
+  `world_id` and excluding `id = {:self}`) and renders their avatar at their
+  saved camera position; (2) subscribes to `players/*` and keeps avatars in
+  sync live (create/update upserts, delete removes), same
+  `subscribe('*')`/`unsubscribe('*')` pattern already used for `blocks` in
+  this file (no other subscriber on the `players` topic yet, so the
+  "`unsubscribe('*')` kills every listener" caveat noted in the last entry
+  doesn't apply here); (3) a `setInterval(500ms)` that reads
+  `world.getCameraTransform()` and PATCHes the player's own camera fields —
+  the throttle the prompt asked for ("once every 500ms maximum, not every
+  frame"), no diffing beyond that since the prompt didn't ask for
+  change-detection and it isn't needed for correctness.
+- **Turtle-writes-on-manual-move — already true, verified rather than
+  added**: `useTurtle.ts`'s `applyManual()` (the function `nudge()`/
+  `rotate()`/`spawnAt()` all funnel through) already calls
+  `publishTransform()`, which already calls `onTurtleMoved` — wired to
+  `useMultiplayerSync`'s `onTurtleMoved` since the 2026-08-11 entry. Checked
+  this by tracing the call graph before writing anything, then confirmed with
+  the end-to-end test below (pressing IJKL updated `turtle_x/y/z/facing` on
+  the server) rather than assuming. No code change was needed for this half
+  of item 2.
+- `client/src/App.tsx` — a new effect, guarded to run once per player id
+  (`restoredForPlayerRef`), that runs once `world` and `pb.player` are both
+  ready: calls `turtle.spawnAt()` with the saved `turtle_x/y/z/facing` if any
+  of the three coordinates is non-zero (matches the "already-existing" spawn
+  default of `(0, 1, 0)`, whose `x`/`z` are already 0 — a fresh player who's
+  never moved has all three at 0 and falls through to the ordinary spawn),
+  and calls `world.restoreCameraTransform()` if any of `camera_x/y/z` is
+  non-zero (same zero-guard, so a first-time player keeps the current
+  default wide establishing shot instead of spawning inside the ground at
+  the origin).
+- Verified end-to-end against a real running PocketBase instance (fresh
+  `pb_data`, migrations 001-006 applied for real) using two separate
+  Playwright browser contexts (Alice, Bob), not by reading the code back:
+  - Confirmed via the REST API that Alice's `camera_x/y/z/yaw` updated
+    within ~1.2s of an orbit-drag (throttled write firing), and that
+    `turtle_x/y/z/facing` updated after IJKL/rotate key presses.
+  - Confirmed, via a temporary debug hook exposing the scene object
+    (removed before committing — not part of the shipped code), that Bob's
+    client actually held a `PlayerAvatarMesh` for Alice at the exact
+    position her server record reported, that neither client rendered an
+    avatar for *itself*, and that the avatar appeared in Bob's scene from
+    hydration alone (before Alice moved at all) as well as updating live
+    after her move.
+  - Reloaded Alice's page and confirmed both the camera (`getCameraTransform()`
+    matched the saved record, small sub-unit drift from `OrbitControls`
+    damping recomputing position on the next frame — well within "roughly
+    where they left off") and the turtle (Panel's displayed position matched
+    exactly) came back without any manual repositioning.
+  - The one console error observed (`ClientResponseError: The request was
+    aborted... auto-cancelled`) during rapid-fire key presses is the same,
+    already-documented, deliberate behavior from the 2026-08-11 entry (only
+    the newest turtle-position write matters, so superseded ones being
+    cancelled is correct) — not a regression.
+  - A `pointer lock` `pageerror` during the orbit-drag simulation is the
+    same known headless-Chromium limitation documented since the 2026-08-05
+    Stage 1.5 entry (a native `click` event still fires after a
+    mousedown/move/up sequence on the canvas, entering first-person and
+    hitting `requestPointerLock()`'s headless limitation) — unrelated to
+    this change.
+  - All test PocketBase data was scratch, in `/tmp`, discarded after
+    verification. Did not touch or restart Jaime's own running dev instance
+    (found running from `tmp/knoxel2/`, a separate checkout, with live
+    browser connections) — used an isolated port/`pb_data`/`pb_public`
+    throughout instead.
+- design.md sections affected: none — this implements the multiplayer-avatar
+  and position-persistence behavior implied by sections 6/7/12/13 (camera and
+  turtle as separate objects, players subscription) that wasn't spelled out
+  as its own numbered item yet.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** One thing flagged, not fixed, since it's pre-existing and out
+of scope of what was asked: `004_is_active_world.js`'s down migration calls
+`collection.fields.remove(field.id)`, which doesn't exist on this PocketBase
+version's `FieldsList` (the correct method is `removeByName`/`removeById` —
+confirmed by actually running `migrate down` and hitting the error). `004`'s
+down migration has therefore never actually worked; `006`'s own down
+migration (written fresh for this task) uses the correct API and was verified
+with a real `migrate down 1` → `migrate up` round trip. Say the word if you'd
+like `004` fixed to match.

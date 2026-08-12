@@ -30,6 +30,15 @@ export interface PlayerRecord {
   turtle_y: number
   turtle_z: number
   turtle_facing: 'north' | 'south' | 'east' | 'west'
+  camera_x: number
+  camera_y: number
+  camera_z: number
+  camera_yaw: number
+}
+
+/** Shown on a player's avatar nameplate: display name, falling back to the email's local part. */
+export function playerLabel(player: Pick<PlayerRecord, 'display_name' | 'email'>): string {
+  return player.display_name || player.email.split('@')[0]
 }
 
 export interface BlockRecord {

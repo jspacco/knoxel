@@ -231,7 +231,7 @@ function nearestEquivalentYaw(current: number, target: number): number {
 }
 
 /** Canvas-backed sprite so player names float above their turtles. */
-function makeNameplate(text: string): THREE.Sprite {
+export function makeNameplate(text: string): THREE.Sprite {
   const padding = 12
   const fontSize = 34
   const canvas = document.createElement('canvas')

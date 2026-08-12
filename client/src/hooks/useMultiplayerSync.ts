@@ -1,8 +1,12 @@
 /**
  * Syncs the local turtle's block placements and position to PocketBase, and
  * mirrors other players' block placements back into the scene in real time.
- * See design.md section 6 ("last write wins via upsert" on blocks) and
- * section 11 (multiplayer shared world).
+ * Also publishes this client's own camera position (throttled) and renders
+ * every other player as an avatar at *their* camera position — the avatar
+ * represents where a student is looking from, not their turtle. See
+ * design.md section 6 ("last write wins via upsert" on blocks), section 11
+ * (multiplayer shared world), and section 12/13 (camera and turtle are
+ * separate objects).
  *
  * Deliberately kept separate from `WorldScene` (useWorld.ts): the scene is a
  * plain Three.js renderer with no knowledge of PocketBase, world ids, or
@@ -13,10 +17,14 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ClientResponseError } from 'pocketbase'
-import { POCKETBASE_ENABLED, pb, type BlockRecord, type PlayerRecord, type WorldRecord } from '../lib/pocketbase'
+import { POCKETBASE_ENABLED, pb, playerLabel, type BlockRecord, type PlayerRecord, type WorldRecord } from '../lib/pocketbase'
+import { hashColor } from '../lib/blockColors'
 import type { Vec3 } from '../lib/interpreter'
 import type { WorldScene } from './useWorld'
 import type { TurtleTransform } from './useTurtle'
+
+/** Camera position writes are throttled to this interval — never per frame. */
+const CAMERA_SYNC_INTERVAL_MS = 500
 
 export interface UseMultiplayerSyncOptions {
   world: WorldScene | null
@@ -97,6 +105,7 @@ export function useMultiplayerSync(options: UseMultiplayerSyncOptions): UseMulti
   playerRef.current = player
 
   const hydratedForWorldId = useRef<string | null>(null)
+  const hydratedPlayersForWorldId = useRef<string | null>(null)
 
   // `WorldScene.blockCount` (read by App.tsx as `world?.blockCount` for the
   // Panel's "Blocks" stat) is a plain getter over imperative Three.js state,
@@ -155,6 +164,86 @@ export function useMultiplayerSync(options: UseMultiplayerSyncOptions): UseMulti
       pb.collection('blocks').unsubscribe('*')
     }
   }, [world, activeWorld])
+
+  // Other players' avatars: their *camera* position, not their turtle — see
+  // design.md section 12/13 and PlayerAvatar.tsx. Hydrate everyone already in
+  // the world once, then keep avatars in sync live.
+  useEffect(() => {
+    if (!POCKETBASE_ENABLED || !world || !activeWorld || !player) return
+    if (hydratedPlayersForWorldId.current === activeWorld.id) return
+    hydratedPlayersForWorldId.current = activeWorld.id
+
+    let cancelled = false
+    pb.collection('players')
+      .getFullList<PlayerRecord>({
+        filter: pb.filter('world_id = {:world} && id != {:self}', { world: activeWorld.id, self: player.id }),
+      })
+      .then((others) => {
+        if (cancelled) return
+        for (const other of others) {
+          world.upsertPlayerAvatar(
+            other.id,
+            { x: other.camera_x, y: other.camera_y, z: other.camera_z },
+            other.camera_yaw,
+            { color: hashColor(other.id), label: playerLabel(other) },
+          )
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load other players for this world:', error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [world, activeWorld, player])
+
+  useEffect(() => {
+    if (!POCKETBASE_ENABLED || !world || !activeWorld || !player) return
+
+    const worldId = activeWorld.id
+    const selfId = player.id
+    pb.collection('players').subscribe<PlayerRecord>('*', (e) => {
+      if (e.record.world_id !== worldId || e.record.id === selfId) return
+      if (e.action === 'delete') {
+        world.removePlayerAvatar(e.record.id)
+        return
+      }
+      world.upsertPlayerAvatar(
+        e.record.id,
+        { x: e.record.camera_x, y: e.record.camera_y, z: e.record.camera_z },
+        e.record.camera_yaw,
+        { color: hashColor(e.record.id), label: playerLabel(e.record) },
+      )
+    })
+
+    return () => {
+      pb.collection('players').unsubscribe('*')
+    }
+  }, [world, activeWorld, player])
+
+  // Publish this client's own camera position/yaw so other players see it as
+  // an avatar, throttled to once per CAMERA_SYNC_INTERVAL_MS — never per
+  // frame, per CLAUDE.md.
+  useEffect(() => {
+    if (!POCKETBASE_ENABLED || !world) return
+    const interval = window.setInterval(() => {
+      const currentPlayer = playerRef.current
+      if (!currentPlayer) return
+      const { position, yaw } = world.getCameraTransform()
+      void pb
+        .collection('players')
+        .update<PlayerRecord>(currentPlayer.id, {
+          camera_x: position.x,
+          camera_y: position.y,
+          camera_z: position.z,
+          camera_yaw: yaw,
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to sync camera position to server:', error)
+        })
+    }, CAMERA_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(interval)
+  }, [world])
 
   const onBlockPlaced = useCallback((position: Vec3, blockId: string) => {
     const currentWorld = activeWorldRef.current

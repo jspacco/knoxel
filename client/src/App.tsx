@@ -73,6 +73,25 @@ export default function App() {
     turtle.run(selected)
   }, [shared.status, world, selected, turtle])
 
+  // On login/reload, put the turtle and camera back roughly where the
+  // student left them, instead of always starting fresh at spawn. Guarded to
+  // run once per player id — after that, manual moves and program runs keep
+  // the server copy up to date, not the other way around.
+  const restoredForPlayerRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!POCKETBASE_ENABLED || !world || !pb.player) return
+    if (restoredForPlayerRef.current === pb.player.id) return
+    restoredForPlayerRef.current = pb.player.id
+
+    const p = pb.player
+    if (p.turtle_x !== 0 || p.turtle_y !== 0 || p.turtle_z !== 0) {
+      turtle.spawnAt({ x: p.turtle_x, y: p.turtle_y, z: p.turtle_z }, p.turtle_facing)
+    }
+    if (p.camera_x !== 0 || p.camera_y !== 0 || p.camera_z !== 0) {
+      world.restoreCameraTransform({ x: p.camera_x, y: p.camera_y, z: p.camera_z }, p.camera_yaw)
+    }
+  }, [world, pb.player, turtle])
+
   /**
    * Drop the turtle where the camera is looking from, snapped to the block
    * grid. Students fly somewhere empty and spawn there to avoid building on

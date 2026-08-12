@@ -13,6 +13,7 @@ import { ATLAS_COLS, ATLAS_ROWS, ATLAS_MAP, type BlockFaces } from '../lib/atlas
 import { hashColor, isHexColor, parseHexColor } from '../lib/blockColors'
 import { TweenManager, linear } from '../lib/anim'
 import { TurtleMesh, type TurtleMeshOptions } from '../components/Turtle'
+import { PlayerAvatarMesh, type PlayerAvatarOptions } from '../components/PlayerAvatar'
 import type { Facing, Vec3 } from '../lib/interpreter'
 
 const ATLAS_URL = `${import.meta.env.BASE_URL}textures/atlas.png`
@@ -190,6 +191,7 @@ export class WorldScene {
   private readonly blockGeometry = new THREE.BoxGeometry(1, 1, 1)
   private readonly blocks = new Map<string, { mesh: THREE.Mesh; blockId: string }>()
   private readonly turtles = new Map<string, TurtleMesh>()
+  private readonly playerAvatars = new Map<string, PlayerAvatarMesh>()
   private orbit: OrbitControls | null = null
 
   private animationFrame = 0
@@ -462,6 +464,41 @@ export class WorldScene {
     this.orbit.update()
   }
 
+  /**
+   * Current camera position and horizontal look direction, for persisting to
+   * the server so other players see this camera's position and so it can be
+   * restored on reload. Valid in both orbit and first-person mode — the
+   * camera's quaternion reflects the real view direction in either case
+   * (OrbitControls sets it from its target every frame; first-person sets it
+   * directly from fpYaw/fpPitch).
+   */
+  getCameraTransform(): { position: Vec3; yaw: number } {
+    const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ')
+    return {
+      position: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
+      yaw: euler.y,
+    }
+  }
+
+  /**
+   * Restore the camera to a saved position/yaw, e.g. on reload so a returning
+   * player finds themselves roughly where they left off. Re-derives
+   * fpYaw/orbit target the same way entering/leaving first-person already
+   * does, so it doesn't fight whichever mode is active.
+   */
+  restoreCameraTransform(position: Vec3, yaw: number): void {
+    this.camera.position.set(position.x, position.y, position.z)
+    this.fpYaw = yaw
+    this.fpPitch = 0
+    this.camera.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, 'YXZ'))
+    this.clampCameraToGround()
+    if (this.orbit) {
+      const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, yaw, 0, 'YXZ'))
+      this.orbit.target.copy(this.camera.position).addScaledVector(forward, 10)
+      this.orbit.update()
+    }
+  }
+
   /** Turn following on/off — driven by the "Follow turtle" panel toggle. */
   setAutoFollow(enabled: boolean): void {
     this.autoFollowEnabled = enabled
@@ -583,6 +620,29 @@ export class WorldScene {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // Other players' avatars (their camera position, not their turtle)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** Create or move a remote player's avatar. Keyed by player id. */
+  upsertPlayerAvatar(id: string, position: Vec3, yaw: number, options: PlayerAvatarOptions): void {
+    const existing = this.playerAvatars.get(id)
+    if (existing) {
+      existing.setTransform(position, yaw)
+      return
+    }
+    const avatar = new PlayerAvatarMesh(position, yaw, options)
+    this.scene.add(avatar.group)
+    this.playerAvatars.set(id, avatar)
+  }
+
+  removePlayerAvatar(id: string): void {
+    const avatar = this.playerAvatars.get(id)
+    if (!avatar) return
+    avatar.dispose()
+    this.playerAvatars.delete(id)
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Render loop
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -642,6 +702,8 @@ export class WorldScene {
     this.orbit?.dispose()
     for (const turtle of this.turtles.values()) turtle.dispose()
     this.turtles.clear()
+    for (const avatar of this.playerAvatars.values()) avatar.dispose()
+    this.playerAvatars.clear()
     this.clearBlocks()
     this.blockGeometry.dispose()
     this.materials.dispose()
