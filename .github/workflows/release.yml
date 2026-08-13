@@ -37,10 +37,6 @@ jobs:
       # first so any build failure is clearly attributed.
       - name: Build client
         run: scripts/build.sh
-        env:
-          # Production PocketBase URL — override if you have a fixed cloud URL.
-          # Leave blank to build in "detect at runtime" mode.
-          VITE_POCKETBASE_URL: ''
 
       # ── Build distribution zips (all three targets) ──────────────────────────
       # package.sh compiles knoxel-server binaries with pkg, downloads
