@@ -45,11 +45,46 @@ jobs:
           # Leave blank to build in "detect at runtime" mode.
           VITE_POCKETBASE_URL: ''
 
+      # ── Sign macOS binary ────────────────────────────────────────────────────
+      - name: Import Apple Developer certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "temp-keychain-password" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "temp-keychain-password" build.keychain
+          security import certificate.p12 -k build.keychain             -P "$APPLE_CERTIFICATE_PASSWORD"             -T /usr/bin/codesign             -T /usr/bin/security
+          security set-key-partition-list             -S apple-tool:,apple:,codesign:             -s -k "temp-keychain-password" build.keychain
+          rm certificate.p12
+
       # ── Build distribution zips (all three targets) ──────────────────────────
       # package.sh compiles knoxel-server binaries with pkg, downloads
       # PocketBase for each platform, and zips everything up into dist/.
       - name: Build distribution zips
         run: scripts/package.sh mac-arm64 windows-x64 linux-x64
+
+      # ── Sign the macOS binary ────────────────────────────────────────────────
+      - name: Sign macOS binary
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --deep --force --verify --verbose             --options runtime             --sign "Developer ID Application: Jaime Spacco ($APPLE_TEAM_ID)"             dist/knoxel-mac-arm64.zip
+          # Verify the signature
+          codesign --verify --verbose dist/knoxel-mac-arm64.zip
+
+      # ── Notarize the macOS binary ────────────────────────────────────────────
+      # Notarization uploads to Apple, they scan it, return a ticket.
+      # Stapling attaches the ticket so it works offline.
+      - name: Notarize macOS binary
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool submit dist/knoxel-mac-arm64.zip             --apple-id "$APPLE_ID"             --team-id "$APPLE_TEAM_ID"             --password "$APPLE_APP_PASSWORD"             --wait             --timeout 10m
+          xcrun stapler staple dist/knoxel-mac-arm64.zip
 
       # ── Verify zips were created ─────────────────────────────────────────────
       - name: List dist/ artifacts
