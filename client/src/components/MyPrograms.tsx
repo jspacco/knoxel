@@ -84,6 +84,7 @@ export function MyPrograms({ player, activeWorld, onLoaded, onError }: MyProgram
           playerName: player.display_name,
           programName: record.program_name,
           threads,
+          sourceId: record.id,
         },
       ],
       `server (${record.program_name})`,

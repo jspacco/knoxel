@@ -379,6 +379,14 @@ export interface ParsedProgram {
   programName: string
   description?: string
   threads: Instruction[][]
+  /**
+   * Stable identity of the server record this came from, if any (set by
+   * `MyPrograms.tsx`). Lets the loaded-programs list in `App.tsx` recognise
+   * "already loaded" and select the existing entry instead of appending a
+   * duplicate. Absent for drag-and-drop/paste/sample loads, which have no
+   * such persistent identity and are allowed to load again as a fresh entry.
+   */
+  sourceId?: string
 }
 
 export interface ProgramParseIssue {

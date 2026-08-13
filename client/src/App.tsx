@@ -37,15 +37,34 @@ export default function App() {
 
   const handleLoaded = useCallback(
     (loaded: ParsedProgram[], sourceLabel: string) => {
-      setPrograms((previous) => {
-        const next = [...previous, ...loaded]
-        // Select the first newly loaded program so Run is immediately useful.
-        setSelectedIndex(previous.length)
-        return next
-      })
-      pushMessage(`Loaded ${loaded.length} program${loaded.length === 1 ? '' : 's'} from ${sourceLabel}.`)
+      // Programs with a `sourceId` (loaded from "My programs") have a stable
+      // server identity — clicking the same one again must select the
+      // existing entry, not append another copy. Drag-and-drop/paste/sample
+      // loads have no `sourceId` and always append, same as before.
+      const next = [...programs]
+      let addedCount = 0
+      let targetIndex = -1
+      for (const program of loaded) {
+        const existingIndex = program.sourceId ? next.findIndex((p) => p.sourceId === program.sourceId) : -1
+        if (existingIndex >= 0) {
+          if (targetIndex === -1) targetIndex = existingIndex
+          continue
+        }
+        next.push(program)
+        addedCount += 1
+        if (targetIndex === -1) targetIndex = next.length - 1
+      }
+
+      if (addedCount > 0) setPrograms(next)
+      if (targetIndex >= 0) setSelectedIndex(targetIndex)
+
+      pushMessage(
+        addedCount > 0
+          ? `Loaded ${addedCount} program${addedCount === 1 ? '' : 's'} from ${sourceLabel}.`
+          : `${sourceLabel} is already loaded.`,
+      )
     },
-    [pushMessage],
+    [programs, pushMessage],
   )
 
   const selected = selectedIndex >= 0 ? programs[selectedIndex] : undefined

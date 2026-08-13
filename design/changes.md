@@ -1534,3 +1534,61 @@ Commit separately."
 - Git commit hash: (this commit)
 
 **NEEDS JAIME:** None.
+
+## 2026-08-12 — Fix duplicate entries from clicking a "My programs" item repeatedly
+
+**Intent:** Jaime reported that clicking the same uploaded program (e.g.
+"flag") in the "My programs" list multiple times added a new copy to the
+loaded-programs list above the Run button each time, instead of loading it
+once and leaving it selected on repeat clicks.
+
+**Prompt:** "we are still getting duplicates. if you upload a program
+'flag', and then you click it multiple times, each click adds a copy of
+'flag' to the list above the run button. that is wrong. it should add flag
+ONE TIME, and then if you click again, that's it, it won't add new copies.
+please fix this."
+
+**Root cause:** `App.tsx`'s `handleLoaded` (the single callback both
+`MyPrograms.tsx` and `ProgramLoader.tsx` call with newly-loaded programs)
+always did `[...previous, ...loaded]` — every call appended, with no concept
+of "this one's already in the list." Clicking a "My programs" entry calls
+`loadProgram()` → `onLoaded()` → `handleLoaded()` fresh every time, so four
+clicks meant four appends of an identical `ParsedProgram`.
+
+**Changes:**
+- `client/src/lib/interpreter.ts` — added an optional `sourceId?: string` to
+  `ParsedProgram`, documented as the stable server-record identity used to
+  recognize "already loaded." Left undefined for drag-and-drop/paste/sample
+  loads, which have no such persistent identity.
+- `client/src/components/MyPrograms.tsx` — `loadProgram()` now sets
+  `sourceId: record.id` on the `ParsedProgram` it constructs, so every load
+  of the same server record carries the same id.
+- `client/src/App.tsx` — rewrote `handleLoaded` to scan the incoming batch
+  against the current list: a program whose `sourceId` already matches an
+  existing entry is not appended — the existing entry's index becomes the
+  selection target instead, and the log message says "already loaded"
+  rather than repeating "Loaded 1 program." Programs with no `sourceId`
+  (drag-and-drop, paste, samples) always append, unchanged from before —
+  this was a targeted fix for the "My programs" click path the bug report
+  described, not a blanket dedupe of every load source, since reloading a
+  locally-edited dropped file is a deliberate, meaningful re-load rather than
+  a duplicate.
+- Verified end-to-end against a real running PocketBase instance (Playwright,
+  not just reading the diff): logged in as a fresh open-mode player,
+  POSTed a `programs` record directly (simulating a Java-client upload) so it
+  showed up under "My programs" via the existing realtime subscription,
+  then clicked that entry four times. The "Programs" (loaded) list held
+  exactly one "flag" entry throughout — confirmed by counting `<li>` elements
+  in that section specifically (an early version of the test script's
+  selector accidentally matched both "My programs" and "Programs" headings
+  via substring text-matching and had to be corrected to an exact-text
+  match before trusting the count). Log showed "Loaded 1 program from server
+  (flag)." once, followed by three "server (flag) is already loaded."
+  lines, and a screenshot confirmed the loaded-programs list and its
+  highlighted selection stayed on the single entry.
+- design.md sections affected: none — this is a client-side bug fix; section
+  13's "click to select" program-list behavior is unchanged for every source
+  except this specific double-load case, which wasn't spec'd either way.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None.
