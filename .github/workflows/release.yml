@@ -1,0 +1,94 @@
+name: Release
+
+# Triggers when you push a version tag: git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest  # cross-compiles all three targets from one host
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node.js (for client build + pkg) ────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'        # matches pkg target version
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      # ── Install root dependencies (pkg lives here) ───────────────────────────
+      - name: Install root dependencies
+        run: npm install
+
+      # ── Install client dependencies ──────────────────────────────────────────
+      - name: Install client dependencies
+        run: npm install
+        working-directory: client
+
+      # ── Build client → server/pb_public ─────────────────────────────────────
+      # package.sh calls build.sh which does this, but we run it explicitly
+      # first so any build failure is clearly attributed.
+      - name: Build client
+        run: scripts/build.sh
+        env:
+          # Production PocketBase URL — override if you have a fixed cloud URL.
+          # Leave blank to build in "detect at runtime" mode.
+          VITE_POCKETBASE_URL: ''
+
+      # ── Build distribution zips (all three targets) ──────────────────────────
+      # package.sh compiles knoxel-server binaries with pkg, downloads
+      # PocketBase for each platform, and zips everything up into dist/.
+      - name: Build distribution zips
+        run: scripts/package.sh mac-arm64 windows-x64 linux-x64
+
+      # ── Verify zips were created ─────────────────────────────────────────────
+      - name: List dist/ artifacts
+        run: ls -lh dist/
+
+      # ── Create GitHub Release and upload zips ────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Knoxel ${{ github.ref_name }}
+          body: |
+            ## Knoxel ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | File |
+            |---|---|
+            | macOS (Apple Silicon) | `knoxel-mac-arm64.zip` |
+            | Windows (x64) | `knoxel-windows-x64.zip` |
+            | Linux (x64) | `knoxel-linux-x64.zip` |
+
+            ### Installation
+
+            1. Download the zip for your platform
+            2. Unzip it
+            3. Double-click `start.command` (Mac), `start.bat` (Windows), or run `./start.sh` (Linux)
+            4. Follow the first-run prompts to create your admin account and world
+
+            See `README.txt` inside the zip for full instructions.
+
+            ### What's included
+
+            - `knoxel-server` — self-contained startup binary (no Node.js required)
+            - `pocketbase` — database server
+            - Pre-built web client
+            - Database migrations
+
+          files: |
+            dist/knoxel-mac-arm64.zip
+            dist/knoxel-windows-x64.zip
+            dist/knoxel-linux-x64.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}  # v0.1.0-beta → prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
