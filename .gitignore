@@ -45,4 +45,7 @@ build/
 .settings/
 bin/
 
+# TypeScript build cache
+*.tsbuildinfo
+
 .env.local
