@@ -36,55 +36,81 @@ jobs:
         working-directory: client
 
       # ── Build client → server/pb_public ─────────────────────────────────────
-      # package.sh calls build.sh which does this, but we run it explicitly
-      # first so any build failure is clearly attributed.
       - name: Build client
         run: scripts/build.sh
         env:
-          # Production PocketBase URL — override if you have a fixed cloud URL.
-          # Leave blank to build in "detect at runtime" mode.
           VITE_POCKETBASE_URL: ''
 
-      # ── Sign macOS binary ────────────────────────────────────────────────────
+      # ── Import Apple Developer Certificate & Intermediate CA ─────────────────
       - name: Import Apple Developer certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
+          # 1. Base64 decode p12 cert
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+
+          # 2. Create and unlock temporary keychain
           security create-keychain -p "temp-keychain-password" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "temp-keychain-password" build.keychain
-          security import certificate.p12 -k build.keychain             -P "$APPLE_CERTIFICATE_PASSWORD"             -T /usr/bin/codesign             -T /usr/bin/security
-          security set-key-partition-list             -S apple-tool:,apple:,codesign:             -s -k "temp-keychain-password" build.keychain
-          rm certificate.p12
+          security set-keychain-settings -lut 21600 build.keychain
+
+          # 3. Download & Import Apple Developer ID Intermediate Certificate (Fixes chain error)
+          curl -O https://www.apple.com/certificateauthority/DeveloperIDCA.cer
+          security import DeveloperIDCA.cer -k build.keychain -T /usr/bin/codesign
+
+          # 4. Import Developer ID p12 certificate
+          security import certificate.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          # 5. Allow codesign tool access without GUI prompt
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "temp-keychain-password" build.keychain
+
+          # Cleanup cert files
+          rm certificate.p12 DeveloperIDCA.cer
 
       # ── Build distribution zips (all three targets) ──────────────────────────
-      # package.sh compiles knoxel-server binaries with pkg, downloads
-      # PocketBase for each platform, and zips everything up into dist/.
       - name: Build distribution zips
         run: scripts/package.sh mac-arm64 windows-x64 linux-x64
 
-      # ── Sign the macOS binary ────────────────────────────────────────────────
-      - name: Sign macOS binary
+      # ── Sign macOS Binaries Inside the Archive ────────────────────────────────
+      - name: Sign macOS binaries
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          codesign --deep --force --verify --verbose             --options runtime             --sign "Developer ID Application: Jaime Spacco ($APPLE_TEAM_ID)"             dist/knoxel-mac-arm64.zip
-          # Verify the signature
-          codesign --verify --verbose dist/knoxel-mac-arm64.zip
+          # Extract mac archive to sign contents directly
+          mkdir -p dist/mac-temp
+          unzip dist/knoxel-mac-arm64.zip -d dist/mac-temp/
 
-      # ── Notarize the macOS binary ────────────────────────────────────────────
-      # Notarization uploads to Apple, they scan it, return a ticket.
-      # Stapling attaches the ticket so it works offline.
-      - name: Notarize macOS binary
+          # Sign all executable binaries inside the unzipped folder
+          find dist/mac-temp -type f \( -name "knoxel-server" -o -name "pocketbase" -o -name "*.command" \) -exec \
+            codesign --force --options runtime --deep --verbose \
+            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" {} +
+
+          # Re-zip the signed contents back to dist/knoxel-mac-arm64.zip
+          cd dist/mac-temp
+          zip -r ../knoxel-mac-arm64.zip .
+          cd ../..
+          rm -rf dist/mac-temp
+
+      # ── Notarize the macOS Zip ────────────────────────────────────────────────
+      - name: Notarize macOS ZIP
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          xcrun notarytool submit dist/knoxel-mac-arm64.zip             --apple-id "$APPLE_ID"             --team-id "$APPLE_TEAM_ID"             --password "$APPLE_APP_PASSWORD"             --wait             --timeout 10m
-          xcrun stapler staple dist/knoxel-mac-arm64.zip
+          xcrun notarytool submit dist/knoxel-mac-arm64.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait \
+            --timeout 10m
 
       # ── Verify zips were created ─────────────────────────────────────────────
       - name: List dist/ artifacts
@@ -127,6 +153,6 @@ jobs:
             dist/knoxel-windows-x64.zip
             dist/knoxel-linux-x64.zip
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}  # v0.1.0-beta → prerelease
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
