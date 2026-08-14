@@ -83,16 +83,18 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Extract mac archive to sign contents directly
           mkdir -p dist/mac-temp
           unzip dist/knoxel-mac-arm64.zip -d dist/mac-temp/
 
-          # Sign all executable binaries inside the unzipped folder
-          find dist/mac-temp -type f \( -name "knoxel-server" -o -name "pocketbase" -o -name "*.command" \) -exec \
-            codesign --force --options runtime --deep --verbose \
+          # Remove quarantine and extended attributes generated during the build
+          xattr -rc dist/mac-temp
+
+          # Sign all binaries with hardened runtime AND a secure Apple timestamp
+          find dist/mac-temp -type f \( -name "knoxel-server" -o -name "pocketbase" \) -exec \
+            codesign --force --options runtime --timestamp --deep --verbose \
             --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" {} +
 
-          # Re-zip the signed contents back to dist/knoxel-mac-arm64.zip
+          # Re-zip for notarization upload
           cd dist/mac-temp
           zip -r ../knoxel-mac-arm64.zip .
           cd ../..
