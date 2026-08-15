@@ -35,6 +35,16 @@ export default function App() {
     setMessages((previous) => [...previous.slice(-19), message])
   }, [])
 
+  function handleLoaded(loaded: ParsedProgram[], message: string) {
+    // Only one program can be active at a time. A new load — from a sample,
+    // a drop, a paste, or "My programs" — always replaces whatever was there,
+    // it never appends.
+    setPrograms(loaded)
+    setSelectedIndex(0)
+    console.log(message)
+  }
+
+  /*
   const handleLoaded = useCallback(
     (loaded: ParsedProgram[], sourceLabel: string) => {
       // Programs with a `sourceId` (loaded from "My programs") have a stable
@@ -66,6 +76,7 @@ export default function App() {
     },
     [programs, pushMessage],
   )
+  */
 
   const selected = selectedIndex >= 0 ? programs[selectedIndex] : undefined
 

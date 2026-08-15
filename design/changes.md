@@ -1592,3 +1592,39 @@ clicks meant four appends of an identical `ParsedProgram`.
 - Git commit hash: (this commit)
 
 **NEEDS JAIME:** None.
+
+## 2026-08-15 — Only one program can be active at a time
+
+**Intent:** Jaime found that selecting a sample from the "Load sample"
+dropdown appended a new entry to the loaded-programs list every time,
+instead of replacing whatever was already selected — screenshot showed
+three stacked entries (skyscraper3, flag, pflag2) after loading three
+samples in a row. The 2026-08-12 fix only deduped by sourceId for
+server-loaded ("My programs") entries; sample/drop/paste loads had no
+sourceId and always appended, unchanged. Jaime confirmed the real intent
+goes further than dedup — there should only ever be ONE program active
+for running, from any source, at any time.
+
+**Prompt:** "yes, there should only be ONE program at a time that is
+active for running."
+
+**Changes:**
+- `client/src/App.tsx` — `handleLoaded` now replaces the `programs` list
+  outright (`setPrograms(loaded)`) instead of appending or scanning for
+  an existing sourceId match. Selection always resets to index 0 of the
+  new list.
+- Removed the sourceId-based dedupe/scan logic added 2026-08-12 — no
+  longer needed under a replace-always policy.
+- `ParsedProgram.sourceId` (interpreter.ts) left in place, unused.
+- No change needed in MyPrograms.tsx or ProgramLoader.tsx — both already
+  called onLoaded() with a single parsed program per action.
+- design.md sections affected: none — section 13 doesn't specify
+  single- vs multi-program list behavior either way.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None on the list-replacement behavior itself. One open
+question not addressed here: what should happen if a student loads a new
+program while one is actively running? Currently the new selection just
+becomes the Run target once the current run finishes/stops — a running
+program is not interrupted by a new load. Flag if you'd rather loading
+be blocked entirely while running.
