@@ -156,5 +156,6 @@ jobs:
             dist/knoxel-linux-x64.zip
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
