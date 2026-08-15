@@ -89,15 +89,15 @@ jobs:
           # Clean extended attributes
           xattr -rc dist/mac-temp
 
-          # Sign PocketBase (standard Go binary, doesn't need JIT entitlements)
-          codesign --force --options runtime --timestamp --deep --verbose \
-            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" \
-            dist/mac-temp/pocketbase
+          # Sign PocketBase (Go binary) wherever it sits inside mac-temp
+          find dist/mac-temp -type f -name "pocketbase" -exec \
+            codesign --force --options runtime --timestamp --deep --verbose \
+            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" {} +
 
-          # Sign knoxel-server WITH JIT entitlements (required for Node.js / V8)
-          codesign --force --options runtime --timestamp --entitlements entitlements.plist --deep --verbose \
-            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" \
-            dist/mac-temp/knoxel-server
+          # Sign knoxel-server (Node binary) WITH JIT entitlements
+          find dist/mac-temp -type f -name "knoxel-server" -exec \
+            codesign --force --options runtime --timestamp --entitlements entitlements.plist --deep --verbose \
+            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" {} +
 
           # Re-zip for notarization upload
           cd dist/mac-temp
