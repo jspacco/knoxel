@@ -86,13 +86,18 @@ jobs:
           mkdir -p dist/mac-temp
           unzip dist/knoxel-mac-arm64.zip -d dist/mac-temp/
 
-          # Remove quarantine and extended attributes generated during the build
+          # Clean extended attributes
           xattr -rc dist/mac-temp
 
-          # Sign all binaries with hardened runtime AND a secure Apple timestamp
-          find dist/mac-temp -type f \( -name "knoxel-server" -o -name "pocketbase" \) -exec \
-            codesign --force --options runtime --timestamp --deep --verbose \
-            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" {} +
+          # Sign PocketBase (standard Go binary, doesn't need JIT entitlements)
+          codesign --force --options runtime --timestamp --deep --verbose \
+            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" \
+            dist/mac-temp/pocketbase
+
+          # Sign knoxel-server WITH JIT entitlements (required for Node.js / V8)
+          codesign --force --options runtime --timestamp --entitlements entitlements.plist --deep --verbose \
+            --sign "Developer ID Application: jaime spacco ($APPLE_TEAM_ID)" \
+            dist/mac-temp/knoxel-server
 
           # Re-zip for notarization upload
           cd dist/mac-temp
