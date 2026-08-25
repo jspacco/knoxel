@@ -154,18 +154,62 @@ function generatePassword() {
   return crypto.randomBytes(24).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)
 }
 
+/**
+ * Writes (or updates) PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD in the project's
+ * .env file, so the bootstrap superuser account survives across runs
+ * instead of being silently regenerated and thrown away every time. This
+ * account is also the only faculty login that exists today — there is no
+ * separate faculty account yet, just this superuser session gating
+ * /faculty (see design.md section 9) — so writing it here is what makes
+ * the faculty panel actually reachable without digging through PocketBase
+ * internals.
+ */
+function writeAdminCredentialsToEnv(email, password) {
+  const lines = fs.existsSync(envFile)
+    ? fs.readFileSync(envFile, 'utf8').split('\n')
+    : []
+
+  const withoutOldAdminLines = lines.filter(line => {
+    const trimmed = line.trim()
+    return !trimmed.startsWith('PB_ADMIN_EMAIL=') && !trimmed.startsWith('PB_ADMIN_PASSWORD=')
+  })
+
+  // Drop a single trailing blank line if present, so we don't accumulate
+  // blank lines across repeated writes.
+  if (withoutOldAdminLines[withoutOldAdminLines.length - 1] === '') {
+    withoutOldAdminLines.pop()
+  }
+
+  const updated = [
+    ...withoutOldAdminLines,
+    '',
+    '# Faculty / PocketBase admin login — auto-generated on first run.',
+    '# Delete these two lines to have knoxel-server.js generate a fresh account.',
+    `PB_ADMIN_EMAIL=${email}`,
+    `PB_ADMIN_PASSWORD=${password}`,
+    '',
+  ].join('\n')
+
+  fs.writeFileSync(envFile, updated, 'utf8')
+}
+
 async function ensureAdminToken() {
   // An operator-provided superuser (e.g. to log into /_/ under a known
   // identity for manual DB poking) is honored if present and valid;
-  // otherwise fall back to the self-managed bootstrap account.
+  // otherwise fall back to the self-managed bootstrap account below.
   const envEmail    = process.env.PB_ADMIN_EMAIL
   const envPassword = process.env.PB_ADMIN_PASSWORD
   if (envEmail && envPassword) {
     const token = await authAsAdmin(envEmail, envPassword)
     if (token) return token
-    console.warn('PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD in .env did not authenticate — falling back to the built-in admin account.\n')
+    console.warn('PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD in .env did not authenticate — generating a new account.\n')
   }
 
+  // No valid credentials in .env yet (first run, or the ones there stopped
+  // working, e.g. after pb_data was wiped). Generate a new password, save
+  // it to .env so it survives to the next run, and use it now. This is
+  // also the faculty login for /faculty until a separate faculty account
+  // system exists.
   const password = generatePassword()
   execFileSync(PB_BINARY, ['superuser', 'upsert', BOOTSTRAP_EMAIL, password], {
     cwd: POCKETBASE_DIR,
@@ -175,6 +219,13 @@ async function ensureAdminToken() {
   if (!token) {
     throw new Error('Bootstrap superuser did not authenticate immediately after being created.')
   }
+
+  writeAdminCredentialsToEnv(BOOTSTRAP_EMAIL, password)
+  console.log(`Admin/faculty login saved to ${envFile}:`)
+  console.log(`  email:    ${BOOTSTRAP_EMAIL}`)
+  console.log(`  password: ${password}`)
+  console.log(`  (use these at http://127.0.0.1:8090/_/ or the faculty panel once it exists)\n`)
+
   return token
 }
 
