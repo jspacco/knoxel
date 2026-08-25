@@ -3,7 +3,13 @@ package edu.knox.knoxel.example;
 import edu.knox.knoxel.*;
 import java.awt.Color;
 
-public class PMauritius2 {
+/**
+ * "Messy" version that uses unnecessarily complicated commands
+ * such as "turnleft-forward-turnright" instead of just "left"
+ * 
+ * PMauritiusMessy
+ */
+public class PMauritiusMessy {
     public static void main(String[] args)
     {
         String serverUrl = "http://localhost:8080";

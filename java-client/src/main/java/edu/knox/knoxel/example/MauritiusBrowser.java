@@ -2,15 +2,11 @@ package edu.knox.knoxel.example;
 
 import edu.knox.knoxel.*;
 
-public class Mauritius {
+public class MauritiusBrowser {
     public static void main(String[] args)
+    throws Exception
     {
-        // SERVER_URL
-        String serverUrl = "http://localhost:8080";
-        // replace with your FULL email address
-        // for example: jillsmith@mycollege.edu
         String email = "";
-        String password = "";
         String programName = "flag";
         String description = "Flag of Mauritius";
 
@@ -34,8 +30,9 @@ public class Mauritius {
             terp.right();
         }
 
-        System.out.println(terp.toJson());
+        //System.out.println(terp.toJson());
 
-        KnoxelUploader.upload(serverUrl, terp, email, password);
+        KnoxelUploader.openInBrowser(terp, email);
     }
+
 }

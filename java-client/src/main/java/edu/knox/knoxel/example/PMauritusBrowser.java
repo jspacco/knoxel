@@ -2,14 +2,10 @@ package edu.knox.knoxel.example;
 
 import edu.knox.knoxel.*;
 
-public class PMauritius {
-    public static void main(String[] args)
+public class PMauritusBrowser {
+    public static void main(String[] args) throws Exception
     {
-        // get the server url from your instructor
-        // SERVER_URL
-        String serverUrl = "http://localhost:8090";
         String email = "jdoe@knox.edu";
-        String password = "";
         String programName = "parallelflag";
         String description = "Mauritius in parallel!";
 
@@ -64,7 +60,7 @@ public class PMauritius {
 
         System.out.println(terp.toJson());
 
-        KnoxelUploader.upload(serverUrl, terp, email, password);
+        KnoxelUploader.openInBrowser(terp, email);
     }
-    
+
 }

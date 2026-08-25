@@ -4,15 +4,15 @@ package edu.knox.knoxel.example;
 // We strip out the package when we distribute to students
 import edu.knox.knoxel.*;
 
-public class PyramidExample {
-    public static void main(String[] args)
+public class PyramidBrowser {
+    public static void main(String[] args) throws Exception
     {
-        // Example usage of the Uploader class
+        // SERVER_URL
         String serverUrl = "http://localhost:8080";
-        // TODO: your college email username
-        String username = "test";
+        // TODO: your full college email address
+        String email = "jdoe@mycollege.edu";
         // TODO: the password provided for you by your instructor
-        String password = "foobar123";
+        String password = "";
         
         String programName = "pyramid";
         String description = "Draw a pyramid.";
@@ -21,24 +21,18 @@ public class PyramidExample {
         
         for (int base=8; base>=0; base-=2){
             for (int i=0; i<base; i++) {
-                for (int j=0; j<base; j++) {
-                    terp.forward();
-                    terp.setBlock(TerpBlockType.OBSIDIAN);
-                }
-                for (int j=0; j<base; j++) {
-                    terp.back();
-                }
+                terp.setBlockForward(TerpBlockType.OBSIDIAN, base);
+                terp.back(base-1);
                 terp.right();
             }
-            for (int i=0; i<base; i++) {
-                terp.left();
-            }
+            terp.left(base);
             terp.forward();
             terp.right();
             terp.up();
         }
 
-        KnoxelUploader.upload(serverUrl, terp, username, password);
+        //KnoxelUploader.upload(serverUrl, terp, email, password);
+        KnoxelUploader.openInBrowser(terp, email);
     }
     
 }

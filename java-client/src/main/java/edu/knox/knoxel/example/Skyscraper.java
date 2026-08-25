@@ -4,13 +4,18 @@ import edu.knox.knoxel.*;
 
 public class Skyscraper {
     public static void main(String[] args)
+    throws Exception
     {
+        // server
+        // SERVER_URL
         String serverUrl = "http://127.0.0.1:8090";
+        // your full college email
         String email = "test@email.com";
-        email = "jspacco@knox.edu";
-        String password = "foobar123";
-        String programName = "skyscraper3";
-        String description = "A skyscraper building";
+        // if your instructor gave you a pasword, put it here
+        // if not then the password is not necessary
+        String password = "";
+        String programName = "skyscraper";
+        String description = "Build a skyscraper";
 
         ParallelTerp terp = new ParallelTerp(programName, description);
 
@@ -34,40 +39,36 @@ public class Skyscraper {
             // ugh
             final int f = floor;
             terp.addThread(t -> {
-                U.nop(t, (numFloors - f) * height);
-                U.up(t, (f - 1) * height);
+                t.nop((numFloors - f) * height);
+                t.up((f - 1) * height);
                 onefloor(t, length, width, height);
             });
             
         }
-        
 
         KnoxelUploader.upload(serverUrl, terp, email, password);
     }
 
     private static void onefloor(AbstractTerp terp, int length, int width, int height) {
-        // let's do the floor
+        // let's do one 
         for (int i=0; i<width; i++) {
 
-            U.forward(terp, length, TerpBlockType.IRON_BLOCK);
-            U.back(terp, length);
+            terp.setBlockForward(TerpBlockType.IRON_BLOCK, length);
+            terp.back(length - 1);
             terp.right();
         }
         // up by one
         terp.up();
         // move back to where we started (I hope?)
-        U.left(terp, width);
+        terp.left(width);
         
         // now the glass that goes on top
         for (int h=0; h<height-1; h++) {
-            U.forward(terp, length, TerpBlockType.GLASS);
-            // -1 for each of these because remember
-            // we move one unit before draw something
-            U.right(terp, width-1, TerpBlockType.GLASS);
-            U.back(terp, length-1, TerpBlockType.GLASS);
-            U.left(terp, width-1, TerpBlockType.GLASS);
+            terp.setBlockForward(TerpBlockType.GLASS, length);
+            terp.setBlockRight(TerpBlockType.GLASS, width);
+            terp.setBlockBack(TerpBlockType.GLASS, length);
+            terp.setBlockLeft(TerpBlockType.GLASS, width);
             terp.up();
-            terp.back();
         }
     }
 }

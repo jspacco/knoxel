@@ -2,9 +2,10 @@ package edu.knox.knoxel.example;
 
 import edu.knox.knoxel.*;
 
-public class AllBlocks {
+public class AllBlocksBrowser {
     public static void main(String[] args) throws Exception
     {
+        // THIS DOES NOT SAVE YOUR CODE
         String username = "jdoe@knox.edu";
         String programName = "allblocks";
         String description = "Testing all blocks";
@@ -13,13 +14,13 @@ public class AllBlocks {
 
         for (TerpBlockType block :TerpBlockType.values()) {
             terp.setBlock(block);
-            System.out.println(block);
+            //System.out.println(block);
             terp.forward();
         }
 
-        String workerUrl = "https://knoxel-worker.jspacco.workers.dev";
-        String pageUrl = "http://jspacco.github.io/knoxel";
-        KnoxelUploader.openInBrowser(terp, username, workerUrl, pageUrl);
+        //System.out.println(terp.toJson());
+
+        KnoxelUploader.openInBrowser(terp, username);
     }
     
 }
