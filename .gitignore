@@ -48,4 +48,7 @@ bin/
 # TypeScript build cache
 *.tsbuildinfo
 
+# local Antigravity (agy) / Gemini config files
+.antigravitycli
+
 .env.local
