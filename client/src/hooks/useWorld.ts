@@ -193,6 +193,8 @@ export class WorldScene {
   private readonly turtles = new Map<string, TurtleMesh>()
   private readonly playerAvatars = new Map<string, PlayerAvatarMesh>()
   private orbit: OrbitControls | null = null
+  private ground: THREE.Mesh | null = null
+  private grid: THREE.GridHelper | null = null
 
   private animationFrame = 0
   private lastFrameTime = 0
@@ -255,6 +257,7 @@ export class WorldScene {
     ground.position.y = GROUND_Y
     ground.name = 'ground'
     this.scene.add(ground)
+    this.ground = ground
 
     const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x4a7a36, 0x5f9448)
     grid.position.y = GROUND_Y + 0.002
@@ -262,6 +265,25 @@ export class WorldScene {
     gridMaterial.transparent = true
     gridMaterial.opacity = 0.35
     this.scene.add(grid)
+    this.grid = grid
+  }
+
+  /**
+   * The ground plane and grid are finite geometry, but should read as
+   * endless — snap them to follow the camera's XZ position each frame,
+   * quantized so the grid lines don't visibly swim underfoot. Solid-colour
+   * ground has no texture to worry about seams on, so simple re-centering
+   * is enough; this must run every frame, not just on placeBlock, since the
+   * camera can fly arbitrarily far without ever placing a block.
+   */
+  private followGroundToCamera(): void {
+    if (!this.ground || !this.grid) return
+    const x = Math.round(this.camera.position.x)
+    const z = Math.round(this.camera.position.z)
+    this.ground.position.x = x
+    this.ground.position.z = z
+    this.grid.position.x = x
+    this.grid.position.z = z
   }
 
   async loadAtlas(): Promise<void> {
@@ -667,6 +689,8 @@ export class WorldScene {
         this.updateFirstPersonMovement(deltaMs / 1000)
       }
       this.clampCameraToGround()
+
+      this.followGroundToCamera()
 
       this.renderer.render(this.scene, this.camera)
       this.animationFrame = requestAnimationFrame(loop)
