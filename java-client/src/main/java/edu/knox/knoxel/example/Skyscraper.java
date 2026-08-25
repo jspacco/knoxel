@@ -5,11 +5,11 @@ import edu.knox.knoxel.*;
 public class Skyscraper {
     public static void main(String[] args)
     {
-        //String serverUrl = "http://54.221.37.234:8080";
         String serverUrl = "http://127.0.0.1:8090";
         String email = "test@email.com";
+        email = "jspacco@knox.edu";
         String password = "foobar123";
-        String programName = "skyscraper";
+        String programName = "skyscraper3";
         String description = "A skyscraper building";
 
         ParallelTerp terp = new ParallelTerp(programName, description);

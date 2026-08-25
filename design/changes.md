@@ -1628,3 +1628,57 @@ program while one is actively running? Currently the new selection just
 becomes the Run target once the current run finishes/stops — a running
 program is not interrupted by a new load. Flag if you'd rather loading
 be blocked entirely while running.
+
+## 2026-08-25 — Fix accounts-mode security regression in API rules (migration 007)
+
+**Intent:** Jaime asked to fix the accounts-mode security regression introduced
+in migration 005 and flagged in changes.md on 2026-08-11. Migration 005
+inadvertently replaced the conditional `world_id.auth_mode` branches on
+`players.createRule`/`updateRule` and `programs.createRule` with flat public
+`''` rules. In accounts-mode worlds, this allowed unauthenticated requests to
+modify any player record or attach programs to any student's `player_id`,
+breaking submission attribution guarantees for grading/research. This fix
+restores the auth_mode branch on those three rules while keeping all other
+rules from 005 (blocks writes, public reads) intact.
+
+**Prompt:** "Task for Antigravity — Fix accounts-mode security regression in Knoxel"
+(details: check pb_migrations for next free number since 006 was taken by
+camera position, restore conditional rules on players create/update and
+programs create, verify empirical HTTP status codes against fresh PocketBase
+instance for open/accounts modes unauthenticated/authenticated/cross-player,
+check down/up round trip, update changes.md closing the 2026-08-11 NEEDS JAIME item).
+
+**Changes:**
+- `server/pb_migrations/007_fix_accounts_mode_rules.js` (new) — Migration number
+  006 was already occupied by `006_add_camera_position.js`, so 007 was used.
+  Restores conditional auth_mode rules:
+  - `players.createRule = "world_id.auth_mode = 'open' || @request.auth.id = id"`
+  - `players.updateRule = "world_id.auth_mode = 'open' || @request.auth.id = id"`
+  - `programs.createRule = "world_id.auth_mode = 'open' || @request.auth.id = player_id"`
+  - `down()` restores flat `''` rules from 005 for clean rollback.
+- This explicitly closes the **NEEDS JAIME** item from the 2026-08-11 entry.
+- Empirical verification against fresh PocketBase 0.39.10 instance:
+  - Fresh `migrate up`: cleanly applied migrations 001 through 007.
+  - Open mode (unauthenticated):
+    - POST `players` (new record): HTTP 200 (created)
+    - PATCH `players` record: HTTP 200 (updated)
+    - POST `programs` attached to `player_id`: HTTP 200 (created)
+  - Accounts mode (unauthenticated):
+    - POST `players`: HTTP 400 (`Failed to create record.`) (rejected)
+    - PATCH existing `players` record: HTTP 404 (`The requested resource wasn't found.`) (rejected)
+    - POST `programs` attached to another player: HTTP 400 (`Failed to create record.`) (rejected)
+  - Accounts mode (authenticated as Player A, own token):
+    - PATCH own `players` record: HTTP 200 (updated)
+    - POST `programs` with own `player_id`: HTTP 200 (created)
+  - Accounts mode (authenticated as Player A, targeting Player B):
+    - PATCH Player B `players` record: HTTP 404 (`The requested resource wasn't found.`) (rejected)
+    - POST `programs` attached to Player B `player_id`: HTTP 400 (`Failed to create record.`) (rejected)
+  - Spot-check unaffected 005 public rules (unauthenticated):
+    - POST `blocks`: HTTP 200 (created)
+    - GET `worlds`: HTTP 200 (list returned)
+    - GET `programs`: HTTP 200 (list returned)
+  - Migration round-trip: `migrate down 1` cleanly reverted 007 (restoring flat `''` rules), and `migrate up` cleanly re-applied 007 (restoring conditional rules).
+- design.md sections affected: none — restores intended Stage 4 behavior from section 7.
+- Git commit hash: (this commit)
+
+**NEEDS JAIME:** None (closes the 2026-08-11 item).

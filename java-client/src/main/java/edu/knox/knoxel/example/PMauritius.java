@@ -5,10 +5,10 @@ import edu.knox.knoxel.*;
 public class PMauritius {
     public static void main(String[] args)
     {
-        String serverUrl = "http://localhost:8080";
-        String username = "test";
+        String serverUrl = "http://localhost:8090";
+        String username = "jdoe@knox.edu";
         String password = "foobar123";
-        String programName = "pflag";
+        String programName = "dude2";
         String description = "Mauritius in parallel!";
 
         ParallelTerp terp = new ParallelTerp(programName, description);
@@ -62,7 +62,7 @@ public class PMauritius {
 
         System.out.println(terp.toJson());
 
-        //KnoxelUploader.upload(serverUrl, terp, username, password);
+        KnoxelUploader.upload(serverUrl, terp, username, password);
     }
     
 }

@@ -31,6 +31,9 @@ public class KnoxelUploader
     public static final int VERSION = 2;
     @SuppressWarnings("unused")
     private static final Gson GSON;
+
+    private static String workerUrl = "https://knoxel-worker.jspacco.workers.dev";
+    private static String pageUrl = "https://jspacco.github.io/knoxel";
     static {
         // NOTE: we could refactor everything out of the static initializer
         // to chain together the calls, but I think this code is clearer
@@ -108,6 +111,13 @@ public class KnoxelUploader
         String email, 
         String password)
     {
+        if (email.equals("")) {
+            throw new RuntimeException("Your email cannot be empty");
+        }
+        if (!email.contains("@")) {
+            throw new RuntimeException("Please use your full email address");
+        }
+
         HttpClient client = HttpClient.newHttpClient();
         //System.out.println(json);
         // Send the POST request to the server
@@ -143,8 +153,22 @@ public class KnoxelUploader
         List<List<TerpInstruction>> threads;
     }
 
+    public static void openInBrowser(Terp terp, String email)
+    throws Exception
+    {
+        
+        openInBrowser(terp, email, workerUrl, pageUrl);
+    }
+
     public static void openInBrowser(Terp terp, String email, String workerUrl, String pageUrl)
     throws Exception
+    {
+        String json = toJson(terp, email);
+        openInBrowser(json, workerUrl, pageUrl);
+    }
+
+    public static void openInBrowser(ParallelTerp terp, String email)
+    throws Exception 
     {
         String json = toJson(terp, email);
         openInBrowser(json, workerUrl, pageUrl);
