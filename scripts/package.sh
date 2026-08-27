@@ -3,7 +3,7 @@
 # Builds distributable zips: a self-contained knoxel-server binary (compiled
 # with pkg — no Node.js install required) + the PocketBase binary +
 # migrations/hooks + the built client + a double-click start script. Faculty
-# unzip, double-click, and go — see scripts/dist-template/README.txt for what
+# unzip, double-click, and go — see scripts/dist-template/README.md for what
 # they see. See design.md section 17 ("Distribution zips").
 #
 # Usage:
@@ -65,7 +65,7 @@ package_target() {
   cp -R "$REPO_DIR/server/pb_public" "$stage_dir/server/pb_public"
   cp "$server_binary_src" "$stage_dir/$server_binary_name"
   cp "$TEMPLATE_DIR/$start_script" "$stage_dir/$start_script"
-  cp "$TEMPLATE_DIR/README.txt" "$stage_dir/README.txt"
+  cp "$TEMPLATE_DIR/README.md" "$stage_dir/README.md"
   chmod +x "$stage_dir/$start_script" 2>/dev/null || true
   chmod +x "$stage_dir/$server_binary_name" 2>/dev/null || true
   chmod +x "$stage_dir/server/$pb_name" 2>/dev/null || true
