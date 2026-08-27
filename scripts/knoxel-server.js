@@ -46,7 +46,7 @@ const HEALTH_TIMEOUT_MS = 30_000
 const HEALTH_POLL_MS    = 500
 
 // Load .env from project root (shell env takes priority)
-const envFile = path.join(BASE_DIR, '.env')
+const envFile = path.join(BASE_DIR, 'knoxel-config.env')
 if (fs.existsSync(envFile)) {
   fs.readFileSync(envFile, 'utf8').split('\n').forEach(line => {
     const trimmed = line.trim()
@@ -156,7 +156,7 @@ function generatePassword() {
 
 /**
  * Writes (or updates) PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD in the project's
- * .env file, so the bootstrap superuser account survives across runs
+ * knoxel-config.env file, so the bootstrap superuser account survives across runs
  * instead of being silently regenerated and thrown away every time. This
  * account is also the only faculty login that exists today — there is no
  * separate faculty account yet, just this superuser session gating
