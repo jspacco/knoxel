@@ -77,8 +77,25 @@ export function usePocketbase() {
       try {
         if (world.auth_mode === 'accounts') {
           if (pb.authStore.isValid && pb.authStore.record) {
-            const record = await pb.collection('players').getOne<PlayerRecord>(pb.authStore.record.id)
-            if (!cancelled) setPlayer(record)
+            if (pb.authStore.record.collectionName === 'players') {
+              const record = await pb.collection('players').getOne<PlayerRecord>(pb.authStore.record.id)
+              if (!cancelled) setPlayer(record)
+            } else if (pb.authStore.isSuperuser) {
+              const session = loadOpenSession()
+              if (session && session.worldId === world.id) {
+                try {
+                  const record = await pb.collection('players').getOne<PlayerRecord>(session.playerId)
+                  if (!cancelled) setPlayer(record)
+                } catch {
+                  saveOpenSession(null)
+                  if (!cancelled) setPlayer(null)
+                }
+              } else if (!cancelled) {
+                setPlayer(null)
+              }
+            } else if (!cancelled) {
+              setPlayer(null)
+            }
           } else if (!cancelled) {
             setPlayer(null)
           }
@@ -104,6 +121,7 @@ export function usePocketbase() {
       cancelled = true
     }
   }, [world])
+
 
   const loginOpen = useCallback(
     async (displayName: string, email: string) => {
@@ -161,6 +179,7 @@ export function usePocketbase() {
     worldError,
     player,
     playerLoading,
+    isSuperuser: Boolean(pb.authStore.isValid && pb.authStore.isSuperuser),
     loginOpen,
     loginAccounts,
     updateDisplayName,

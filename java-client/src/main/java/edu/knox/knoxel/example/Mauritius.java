@@ -6,10 +6,10 @@ public class Mauritius {
     public static void main(String[] args)
     {
         // SERVER_URL
-        String serverUrl = "http://localhost:8080";
+        String serverUrl = "http://localhost:8090";
         // replace with your FULL email address
         // for example: jillsmith@mycollege.edu
-        String email = "";
+        String email = "jspacco@knox.edu";
         String password = "";
         String programName = "flag";
         String description = "Flag of Mauritius";

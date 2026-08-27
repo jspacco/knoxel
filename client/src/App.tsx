@@ -1,7 +1,6 @@
 /**
- * Wires the scene, the tick runner, and the panel together.
- *
- * Stage 1: solo visualiser. Everything happens in the browser — no server.
+ * Wires the scene, the tick runner, and the panel together, as well as the
+ * /faculty route for the faculty submissions dashboard.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -10,16 +9,48 @@ import { Panel } from './components/Panel'
 import { ProgramLoader } from './components/ProgramLoader'
 import { Login } from './components/Login'
 import { MyPrograms } from './components/MyPrograms'
+import { FacultyLogin } from './components/FacultyLogin'
+import { FacultyDashboard } from './components/FacultyDashboard'
 import { useWorld } from './hooks/useWorld'
 import { useTurtle } from './hooks/useTurtle'
 import { usePocketbase } from './hooks/usePocketbase'
+import { useFacultyAuth } from './hooks/useFacultyAuth'
 import { useMultiplayerSync } from './hooks/useMultiplayerSync'
 import { useSharedLink } from './hooks/useSharedLink'
+import { navigate, usePathname } from './lib/router'
 import { POCKETBASE_ENABLED } from './lib/pocketbase'
 import type { ParsedProgram, Vec3 } from './lib/interpreter'
 import { MIN_Y } from './lib/interpreter'
 
 export default function App() {
+  const pathname = usePathname()
+  const facultyAuth = useFacultyAuth()
+
+  // Route gate: /faculty is protected by PocketBase superuser session
+  if (pathname.startsWith('/faculty')) {
+    if (!facultyAuth.isSuperuser) {
+      return (
+        <FacultyLogin
+          onLogin={facultyAuth.login}
+          loading={facultyAuth.authLoading}
+          error={facultyAuth.authError}
+        />
+      )
+    }
+
+    return (
+      <FacultyDashboard
+        adminEmail={facultyAuth.adminEmail}
+        onLogout={facultyAuth.logout}
+        onJoinAsStudent={facultyAuth.joinAsStudent}
+      />
+    )
+  }
+
+  return <StudentVisualizer facultyAuth={facultyAuth} />
+}
+
+function StudentVisualizer({ facultyAuth }: { facultyAuth: ReturnType<typeof useFacultyAuth> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { world, atlasError, cameraMode, pointerLocked } = useWorld(canvasRef)
 
@@ -43,40 +74,6 @@ export default function App() {
     setSelectedIndex(0)
     console.log(message)
   }
-
-  /*
-  const handleLoaded = useCallback(
-    (loaded: ParsedProgram[], sourceLabel: string) => {
-      // Programs with a `sourceId` (loaded from "My programs") have a stable
-      // server identity — clicking the same one again must select the
-      // existing entry, not append another copy. Drag-and-drop/paste/sample
-      // loads have no `sourceId` and always append, same as before.
-      const next = [...programs]
-      let addedCount = 0
-      let targetIndex = -1
-      for (const program of loaded) {
-        const existingIndex = program.sourceId ? next.findIndex((p) => p.sourceId === program.sourceId) : -1
-        if (existingIndex >= 0) {
-          if (targetIndex === -1) targetIndex = existingIndex
-          continue
-        }
-        next.push(program)
-        addedCount += 1
-        if (targetIndex === -1) targetIndex = next.length - 1
-      }
-
-      if (addedCount > 0) setPrograms(next)
-      if (targetIndex >= 0) setSelectedIndex(targetIndex)
-
-      pushMessage(
-        addedCount > 0
-          ? `Loaded ${addedCount} program${addedCount === 1 ? '' : 's'} from ${sourceLabel}.`
-          : `${sourceLabel} is already loaded.`,
-      )
-    },
-    [programs, pushMessage],
-  )
-  */
 
   const selected = selectedIndex >= 0 ? programs[selectedIndex] : undefined
 
@@ -201,9 +198,20 @@ export default function App() {
                 <span className="identity-name">{pb.player.display_name}</span>
                 <span className="identity-email muted small">{pb.player.email}</span>
               </div>
-              <button type="button" className="link-button" onClick={pb.logout}>
-                switch player
-              </button>
+              <div className="identity-actions">
+                {(pb.player.is_faculty || facultyAuth.isSuperuser) && (
+                  <button
+                    type="button"
+                    className="link-button faculty-panel-btn"
+                    onClick={() => navigate('/faculty')}
+                  >
+                    faculty panel
+                  </button>
+                )}
+                <button type="button" className="link-button" onClick={pb.logout}>
+                  switch player
+                </button>
+              </div>
             </div>
           )
         }

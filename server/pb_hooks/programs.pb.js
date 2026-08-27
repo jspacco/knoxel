@@ -38,12 +38,18 @@ onRecordCreate((e) => {
   let instructionCount = 0
   let threadCount = 0
   if (payload && typeof payload === 'object') {
-    const threads = payload.type === 'parallel' ? payload.threads : [payload.instructions]
-    if (Array.isArray(threads)) {
-      const validThreads = threads.filter((thread) => Array.isArray(thread))
-      threadCount = validThreads.length
-      for (const thread of validThreads) instructionCount += thread.length
+    let threads = []
+    if (Array.isArray(payload.threads)) {
+      threads = payload.threads
+    } else if (Array.isArray(payload.instructions)) {
+      threads = [payload.instructions]
+    } else if (Array.isArray(payload)) {
+      threads = [payload]
     }
+
+    const validThreads = threads.filter((thread) => Array.isArray(thread))
+    threadCount = validThreads.length
+    for (const thread of validThreads) instructionCount += thread.length
   }
 
   e.record.set('instruction_count', instructionCount)

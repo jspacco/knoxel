@@ -34,6 +34,7 @@ export interface PlayerRecord {
   camera_y: number
   camera_z: number
   camera_yaw: number
+  last_seen?: string
 }
 
 /** Shown on a player's avatar nameplate: display name, falling back to the email's local part. */
@@ -49,6 +50,7 @@ export interface BlockRecord {
   y: number
   z: number
   block_id: string
+  placed_at?: string
 }
 
 export interface ProgramRecord {
@@ -60,6 +62,49 @@ export interface ProgramRecord {
   instruction_count: number
   thread_count: number
   submitted_at: string
+}
+
+export const OPEN_SESSION_KEY = 'knoxel_open_session'
+
+/**
+ * Creates or retrieves a test student player account flagged with is_faculty = true
+ * in the active world, and saves it to local session storage so faculty can test
+ * the full student experience without losing their admin session.
+ */
+export async function joinAsFacultyStudent(world: WorldRecord, adminEmail?: string): Promise<PlayerRecord> {
+  const email = (adminEmail && adminEmail.trim()) || 'faculty@knox.edu'
+  const displayName = 'Faculty (Test)'
+
+  let record: PlayerRecord
+  try {
+    record = await pb
+      .collection('players')
+      .getFirstListItem<PlayerRecord>(
+        pb.filter('is_faculty = true && world_id = {:world}', { world: world.id })
+      )
+  } catch {
+    try {
+      record = await pb
+        .collection('players')
+        .getFirstListItem<PlayerRecord>(
+          pb.filter('email = {:email} && world_id = {:world}', { email, world: world.id })
+        )
+      if (!record.is_faculty) {
+        record = await pb.collection('players').update<PlayerRecord>(record.id, { is_faculty: true })
+      }
+    } catch {
+      record = await pb.collection('players').create<PlayerRecord>({
+        display_name: displayName,
+        email,
+        is_faculty: true,
+        world_id: world.id,
+        turtle_facing: 'north',
+      })
+    }
+  }
+
+  localStorage.setItem(OPEN_SESSION_KEY, JSON.stringify({ playerId: record.id, worldId: world.id }))
+  return record
 }
 
 /**
@@ -89,3 +134,4 @@ export async function fetchActiveWorld(): Promise<WorldRecord | null> {
     }
   }
 }
+

@@ -1682,3 +1682,49 @@ check down/up round trip, update changes.md closing the 2026-08-11 NEEDS JAIME i
 - Git commit hash: (this commit)
 
 **NEEDS JAIME:** None (closes the 2026-08-11 item).
+
+## 2026-08-27 — Stage 5 & 5.1: Faculty Panel route, superuser gate, "Join as Student", and Submissions Dashboard
+
+**Intent:** Jaime needed a dedicated faculty panel (`/faculty`) and submissions dashboard to inspect, summarize, drill into, and export student uploads for the active world without having to manually query SQLite or inspect PocketBase's raw admin collection records.
+
+**Prompt:** "Task for Antigravity — Knoxel Stage 5.1: Submissions dashboard (summary stats + per-student table + export)" (after flagging that Stage 5 was missing, Jaime confirmed option 2 to implement Stage 5 and Stage 5.1 together in one pass).
+
+**Changes:**
+- `client/src/lib/router.ts` (new) — lightweight client-side router (`usePathname`, `navigate`) utilizing the HTML5 History API (`pushState` + `popstate`), cleanly routing between the student visualizer (`/`) and the faculty panel (`/faculty`).
+- `client/src/hooks/useFacultyAuth.ts` (new) — manages PocketBase superuser session state, admin login (`_superusers` collection auth), logout, and faculty test player generation.
+- `client/src/components/FacultyLogin.tsx` (new) — admin authentication gate for `/faculty`, prompting for PocketBase superuser email + password with clear error feedback and a return link to the student visualizer.
+- `client/src/components/FacultyDashboard.tsx` (new) — comprehensive faculty submissions dashboard scoped to the currently active world:
+  - Header with active world name, mode badge (`Open Mode` / `Accounts Mode`), admin email, "Join as Student" button, and Log Out.
+  - **Part A (Summary Header):** Computes three aggregate metrics for the active world:
+    1. *Submitting Students count:* distinct `player_id`s in `programs` for this world.
+    2. *Average Instructions per Submission:* mean of `instruction_count` across all `programs` uploads in this world.
+    3. *Average Blocks per Submission:* student-level ratio of blocks placed in this world to total submissions uploaded by that student, averaged across all students who submitted (explicitly noted as an approximation per the prompt since blocks are linked to `player_id` and `world_id` rather than directly to individual `program_id`s).
+  - **Part B (Per-Student Table):** Table containing one row per student who has submitted at least one program in the active world.
+    - Columns: Display Name, Email, Submission Count, Last Upload Timestamp, Most Recent Instruction Count, Blocks Placed, and Status (Active [`last_seen` < 5 min], Idle [`last_seen` > 5 min], Never connected).
+    - Sortable by every column with proper numeric, date timestamp, and text comparisons.
+    - Search filter matching Display Name or Email with clear button.
+    - Drill-down expand row displaying all individual submissions for that student (Program Name, Submitted At timestamp, Instruction Count, Thread Count, and a "Download JSON" button).
+    - Downloads exact raw `json_content` without reformatting or pretty-printing, named `{display_name}-{program_name}-{submitted_at}.json`.
+  - **Part C (Bulk Exports):**
+    - *Full JSON Export:* single JSON file containing all world submissions with student display name, email, program name, timestamp, instruction count, thread count, and complete `json_content`.
+    - *CSV Summary:* CSV file with one row per submitting student (Display Name, Email, Submission Count, Most Recent Instruction Count, Most Recent Thread Count, First Submission Timestamp, Last Submission Timestamp, Total Blocks Placed).
+- `client/src/lib/pocketbase.ts` — added `joinAsFacultyStudent()` helper to create/retrieve a test player account flagged with `is_faculty = true` for faculty in the active world, exported `OPEN_SESSION_KEY`, and added `last_seen` and `placed_at` fields to type interfaces.
+- `client/src/hooks/usePocketbase.ts` — exported `isSuperuser` and added accounts-mode fallback so superusers testing via "Join as Student" load their faculty test player session without losing their admin token.
+- `client/src/App.tsx` — routed `/faculty` to `<FacultyLogin>` / `<FacultyDashboard>`, and added a "faculty panel" navigation button in the student visualizer identity header when `is_faculty` or `isSuperuser`.
+- `client/src/index.css` — added styling for faculty login card, header, metric cards, table, sortable column headers, status pills, drill-down subtable, and toolbar.
+- `server/pb_hooks/programs.pb.js` — updated counting hook to handle flat v2 payloads where `threads` is an array directly (in addition to `{ type: 'parallel', threads: [...] }` and `{ instructions: [...] }`), ensuring `instruction_count` and `thread_count` are accurately computed and populated on creation.
+- Verified end-to-end against real running PocketBase 0.39.10 instances and headless Playwright browser sessions:
+  - Seeded scratch accounts-mode world (`CS142-Fall`) with multiple students, uploads with varying instruction counts (15 to 100), and block placements (0 to 10).
+  - Verified Part A metrics matched manual calculations exactly: 3 submitting students, 43.8 avg instructions/submission, 2.7 avg blocks/submission.
+  - Verified student Dave (0 submissions) was correctly excluded from table in accounts mode.
+  - Verified table sorting across numeric columns (`submissionCount`, `totalBlocks`, `recentInstructionCount`), timestamp column (`lastUpload`), and string columns (`displayName`, `email`, `status`).
+  - Verified search filter and clear functionality.
+  - Verified student drill-down and byte-for-byte exactness of downloaded raw JSON files against stored database records.
+  - Verified Full JSON export and CSV Summary export.
+  - Verified "Join as Student" created test player, loaded student visualizer, and allowed seamless return to `/faculty` with superuser auth preserved.
+  - Verified open-mode scratch world (`CS142-OpenLab`): confirmed no "hasn't submitted" or "missing" framing was shown anywhere in the UI.
+- design.md sections affected: implements section 9 ("Faculty Panel" / Submissions view / Exports).
+- Git commit hash: `6ba2150`
+
+**NEEDS JAIME:**
+1. **Accounts-mode zero-submission roster suggestion:** As noted in the prompt constraint, Part B table only lists students with at least 1 submission in both open and accounts mode. In accounts mode, an optional toggle (e.g. "Show enrolled students with 0 submissions") could be added in a future update if faculty want to see students on the roster who haven't uploaded anything yet.
