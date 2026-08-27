@@ -52,3 +52,4 @@ bin/
 .antigravitycli
 
 .env.local
+knoxel-config.env
