@@ -6,14 +6,11 @@ public class Skyscraper {
     public static void main(String[] args)
     throws Exception
     {
-        // server
-        // SERVER_URL
-        String serverUrl = "http://127.0.0.1:8090";
-        // your full college email
-        String email = "test@email.com";
-        // if your instructor gave you a pasword, put it here
-        // if not then the password is not necessary
-        String password = "";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
+        
         String programName = "skyscraper";
         String description = "Build a skyscraper";
 

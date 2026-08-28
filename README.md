@@ -24,23 +24,32 @@ against a different Worker than `knoxel-worker.jspacco.workers.dev`.
 The Worker itself (`worker/`) only needs `npx wrangler deploy` once; it's not
 part of this build step. See `design/design.md` section 3.
 
+## Local/shared server tier (PocketBase)
+
 First run:
-1. Binary starts PocketBase
-2. PocketBase detects no superuser exists
-3. Wrapper detects this and opens browser to /_/ for superuser creation
-   (or just tells faculty: "Open http://localhost:8090/_/ to create your admin account")
-4. Faculty creates superuser (email + password, can be anything)
-5. Wrapper continues with world selection prompt
-6. Done — superuser never needs to be created again
+1. Binary starts PocketBase.
+2. Wrapper checks `knoxel-config.env` for existing admin credentials.
+3. None found (or they no longer authenticate, e.g. after wiping
+   `pb_data`) — wrapper generates a new superuser account via
+   `pocketbase superuser upsert`, authenticates as it, and writes the
+   email/password into `knoxel-config.env`. No browser step, no manual
+   account creation — this is fully non-interactive.
+4. Wrapper continues with world selection prompt.
+5. Done — same credentials are reused on every future run, no
+   re-creation needed.
 
 Subsequent runs:
-1. Binary starts PocketBase  
-2. Superuser already exists, skip
-3. World selection prompt
-4. Done
+1. Binary starts PocketBase.
+2. Wrapper reads `knoxel-config.env`, authenticates with the existing
+   credentials, skips generation.
+3. World selection prompt.
+4. Done.
 
 - [ ] docs/faculty-setup.md needs a "first run" section covering:
-      1. Create superuser at /_/ (one time only)
-      2. World creation via CLI prompt
-      3. (Accounts mode only) Upload student list via faculty panel
-      4. Share server URL with students
+      1. First run auto-generates admin/faculty credentials into
+         `knoxel-config.env` — no manual superuser setup needed.
+      2. World creation via CLI prompt.
+      3. (Accounts mode only) Upload student list via the faculty panel
+         (`/faculty`) to generate student accounts and a downloadable
+         email/password CSV.
+      4. Share the server URL with students.
