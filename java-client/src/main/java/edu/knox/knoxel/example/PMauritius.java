@@ -5,11 +5,11 @@ import edu.knox.knoxel.*;
 public class PMauritius {
     public static void main(String[] args)
     {
-        // get the server url from your instructor
-        // SERVER_URL
-        String serverUrl = "http://localhost:8090";
-        String email = "jdoe@knox.edu";
-        String password = "";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
+        
         String programName = "parallelflag";
         String description = "Mauritius in parallel!";
 

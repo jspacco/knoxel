@@ -26,6 +26,22 @@ jobs:
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
+      # ── Java (for the student project's Gradle build) ────────────────────────
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      
+
+      # ── Build student VS Code project zip ────────────────────────────────────
+      - name: Build student project zip
+        run: |
+          cd java-client
+          ./gradlew clientZip
+          cd ..
+          cp java-client/build/student-knoxel.zip dist/student-knoxel.zip
+
       # ── Install root dependencies (pkg lives here) ───────────────────────────
       - name: Install root dependencies
         run: npm install
@@ -138,6 +154,7 @@ jobs:
             | macOS (Apple Silicon) | `knoxel-mac-arm64.zip` |
             | Windows (x64) | `knoxel-windows-x64.zip` |
             | Linux (x64) | `knoxel-linux-x64.zip` |
+            | Student VS Code project (Java) | `student-knoxel.zip` |
 
             ### Installation
 
@@ -159,6 +176,7 @@ jobs:
             dist/knoxel-mac-arm64.zip
             dist/knoxel-windows-x64.zip
             dist/knoxel-linux-x64.zip
+            dist/student-knoxel.zip
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           make_latest: true

@@ -32,28 +32,103 @@ tasks.register('generateSamples', JavaExec) {
     mainClass = 'edu.knox.knoxel.TerpTest'
 }
 
-// Generate sample JSON files into ../samples/
-// tasks.register('generateSamples', JavaExec) {
-//     group = 'knoxel'
-//     description = 'Generate sample JSON files into ../samples/'
-//     classpath = sourceSets.main.runtimeClasspath
-//     mainClass = 'edu.knox.knoxel.TerpTest'
-//     doFirst {
-//         new File('../samples').mkdirs()
-//     }
-// }
-
 // Build a fat jar (with gson bundled) for student distribution
 tasks.register('clientJar', Jar) {
     group = 'knoxel'
     description = 'Fat jar with gson bundled for student distribution'
     archiveBaseName = 'knoxel-client'
     from sourceSets.main.output
-    from configurations.runtimeClasspath.collect { 
-        it.isDirectory() ? it : zipTree(it) 
+    from configurations.runtimeClasspath.collect {
+        it.isDirectory() ? it : zipTree(it)
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    // manifest {
-    //     attributes 'Main-Class': 'edu.knox.knoxel.TerpTest'
-    // }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Student VS Code project packaging
+// ─────────────────────────────────────────────────────────────────────────
+
+def studentProjectDir = layout.buildDirectory.dir('knoxel-student').get().asFile
+
+// 1) Prepare the student folder (creates src/, lib/, workspace file).
+tasks.register('prepareStudentProject') {
+    group = 'distribution'
+    description = 'Creates a student project folder with src, lib, and workspace.'
+    outputs.dir studentProjectDir
+
+    doLast {
+        delete studentProjectDir
+        def srcDir = new File(studentProjectDir, "src")
+        def libDir = new File(studentProjectDir, "lib")
+        srcDir.mkdirs()
+        libDir.mkdirs()
+
+        def javaFiles = fileTree('src/main/java') { include 'edu/knox/knoxel/example/*.java' }
+        javaFiles.each { f ->
+            def newContent = f.text.replaceAll('package edu\\.knox.*;', '')
+            new File(srcDir, f.name).text = newContent
+        }
+
+        new File(studentProjectDir, "DoubleClickToOpen.code-workspace").text = """
+        {
+          "folders": [
+            {
+              "path": "."
+            }
+          ],
+          "settings":{
+            "java.project.referencedLibraries": [
+              "lib/**/*.jar"
+            ]
+          }
+        }
+        """.stripIndent().trim()
+    }
+}
+
+// 2) Build the student library JAR (gson bundled, examples excluded) into
+//    build/knoxel/lib/. This is the fat jar students never need to look
+//    inside — clientJar above is the same idea for other distribution
+//    purposes; this one specifically targets the student project's lib/.
+tasks.register('studentLibJar', Jar) {
+    group = 'distribution'
+    description = 'Fat jar with gson bundled, excluding examples, for students.'
+
+    archiveBaseName = 'knoxel-client'
+    destinationDirectory = file("$studentProjectDir/lib")
+
+    from(sourceSets.main.output) {
+        exclude 'edu/knox/knoxel/example/**'
+    }
+    from configurations.runtimeClasspath.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Must run after prepareStudentProject, which deletes and recreates
+    // studentProjectDir (including lib/) — without this ordering, a run
+    // where both tasks are invoked together could delete this jar right
+    // after it's written.
+    mustRunAfter tasks.named('prepareStudentProject')
+}
+
+// 3) Zip the prepared folder into build/knoxel-client.zip
+tasks.register('clientZip', Zip) {
+    group = 'distribution'
+    description = 'Zips the student project into knoxel-client.zip'
+
+    dependsOn tasks.named('prepareStudentProject'), tasks.named('studentLibJar')
+    destinationDirectory = layout.buildDirectory
+    archiveFileName = "knoxel-client.zip"
+
+    from(studentProjectDir)
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+// One task to build everything student-facing, unzipped, in build/knoxel/
+tasks.register('studentProject') {
+    group = 'knoxel'
+    description = 'Assemble the full student VS Code project into build/knoxel'
+    dependsOn tasks.named('prepareStudentProject'), tasks.named('studentLibJar')
 }

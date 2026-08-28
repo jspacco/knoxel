@@ -5,13 +5,10 @@ import edu.knox.knoxel.*;
 public class Pyramid {
     public static void main(String[] args) throws Exception
     {
-        // TODO: your instructor will give you serverUrl
-        // SERVER_URL
-        String serverUrl = "http://localhost:8080";
-        // TODO: your full college email address
-        String email = "jdoe@mycollege.edu";
-        // TODO: if needed the password provided for you by your instructor
-        String password = "";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
         
         String programName = "pyramid";
         String description = "Draw a pyramid.";

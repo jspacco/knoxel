@@ -5,6 +5,7 @@ import edu.knox.knoxel.*;
 public class PMauritusBrowser {
     public static void main(String[] args) throws Exception
     {
+        // THIS WILL NOT SAVE YOUR CODE OR SUBMISSION
         String email = "jdoe@knox.edu";
         String programName = "parallelflag";
         String description = "Mauritius in parallel!";

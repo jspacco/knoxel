@@ -5,12 +5,11 @@ import edu.knox.knoxel.*;
 public class Mauritius {
     public static void main(String[] args)
     {
-        // SERVER_URL
-        String serverUrl = "http://localhost:8090";
-        // replace with your FULL email address
-        // for example: jillsmith@mycollege.edu
-        String email = "jspacco@knox.edu";
-        String password = "";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
+        
         String programName = "flag";
         String description = "Flag of Mauritius";
 

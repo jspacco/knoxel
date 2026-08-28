@@ -12,9 +12,11 @@ import java.awt.Color;
 public class PMauritiusMessy {
     public static void main(String[] args)
     {
-        String serverUrl = "http://localhost:8080";
-        String username = "test";
-        String password = "foobar123";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
+
         String programName = "pflag2";
         String description = "Mauritius in parallel!";
 
@@ -80,7 +82,7 @@ public class PMauritiusMessy {
 
         System.out.println(terp.toJson());
 
-        //KnoxelUploader.upload(serverUrl, terp, username, password);
+        KnoxelUploader.upload(serverUrl, terp, email, password);
     }
     
 }

@@ -5,10 +5,10 @@ import edu.knox.knoxel.*;
 public class AllBlocksServer {
     public static void main(String[] args) throws Exception
     {
-        // SERVER_URL
-        String serverUrl = "http://localhost:8090";
-        String email = "jdoe@knox.edu";
-        String password = "";
+        // Set these values in StudentConfig.java
+        String serverUrl = StudentConfig.SERVER_URL;
+        String email = StudentConfig.EMAIL;
+        String password = StudentConfig.PASSWORD;
         String programName = "allblocks";
         String description = "Testing all blocks";
 
