@@ -34,14 +34,6 @@ jobs:
           java-version: '21'
       
 
-      # ── Build student VS Code project zip ────────────────────────────────────
-      - name: Build student project zip
-        run: |
-          cd java-client
-          ./gradlew clientZip
-          cd ..
-          cp java-client/build/student-knoxel.zip dist/student-knoxel.zip
-
       # ── Install root dependencies (pkg lives here) ───────────────────────────
       - name: Install root dependencies
         run: npm install
@@ -134,6 +126,16 @@ jobs:
             --password "$APPLE_APP_PASSWORD" \
             --wait \
             --timeout 10m
+
+
+      # ── Build student VS Code project zip ────────────────────────────────────
+      - name: Build student project zip
+        run: |
+          cd java-client
+          ./gradlew clientZip
+          cd ..
+          cp java-client/build/student-knoxel.zip dist/student-knoxel.zip
+
 
       # ── Verify zips were created ─────────────────────────────────────────────
       - name: List dist/ artifacts
