@@ -121,7 +121,9 @@ tasks.register('clientZip', Zip) {
     destinationDirectory = file(layout.buildDirectory.get().asFile)
     archiveFileName = "student-knoxel.zip"
 
-    from(studentProjectDir)
+    from(studentProjectDir) {
+        into 'student-knoxel'
+    }
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }
