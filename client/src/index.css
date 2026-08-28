@@ -957,3 +957,186 @@ label.field select {
   text-align: center;
 }
 
+/* ── Stage 5.2 Account Provisioning & Passwords ─────────────────────────── */
+
+.mode-toggle-button {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.password-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.faculty-accounts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-left: 3px solid #c084fc;
+}
+
+.faculty-section-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.faculty-section-desc {
+  margin: 0;
+}
+
+.faculty-accounts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faculty-accounts-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faculty-emails-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 80px;
+  border-radius: 6px;
+}
+
+.faculty-accounts-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.faculty-file-upload-label {
+  cursor: pointer;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.faculty-provision-results {
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faculty-provision-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.provision-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-stat-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stat-created {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.stat-skipped {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.stat-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.faculty-provision-list-container {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.faculty-provision-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--bg-raised);
+}
+
+.faculty-provision-table th {
+  padding: 6px 12px;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.faculty-provision-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.faculty-provision-table tr:last-child td {
+  border-bottom: none;
+}
+
+.provision-pill-created {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.provision-pill-skipped {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.provision-pill-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.drilldown-header-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.drilldown-student-password {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+

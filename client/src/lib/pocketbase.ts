@@ -35,6 +35,7 @@ export interface PlayerRecord {
   camera_z: number
   camera_yaw: number
   last_seen?: string
+  provisioned_password?: string
 }
 
 /** Shown on a player's avatar nameplate: display name, falling back to the email's local part. */

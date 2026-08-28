@@ -1728,3 +1728,40 @@ check down/up round trip, update changes.md closing the 2026-08-11 NEEDS JAIME i
 
 **NEEDS JAIME:**
 1. **Accounts-mode zero-submission roster suggestion:** As noted in the prompt constraint, Part B table only lists students with at least 1 submission in both open and accounts mode. In accounts mode, an optional toggle (e.g. "Show enrolled students with 0 submissions") could be added in a future update if faculty want to see students on the roster who haven't uploaded anything yet.
+
+## 2026-08-27 — Knoxel Stage 5.2: Account provisioning (accounts-mode passwords)
+
+**Intent:** Provide faculty in `/faculty` with a minimal toggle to switch the active world's `auth_mode` between `open` and `accounts`, bulk-provision student PocketBase auth accounts from plain-text or CSV email lists with memorable passwords (`word-pair-number` format), and look up student passwords on demand in the submissions dashboard without requiring password regeneration or rotation.
+
+**Prompt:** "Task for Antigravity — Knoxel Stage 5.2: Account provisioning (accounts-mode passwords)"
+
+**Changes:**
+- `server/pb_migrations/008_add_provisioned_password.js` (new) — added `provisioned_password` (text field, optional) to the `players` collection.
+  - *Explicit product decision / security tradeoff:* PocketBase auth collections store passwords as bcrypt hashes, which cannot be retrieved later. To allow faculty to look up student passwords on demand from the faculty dashboard without needing password rotation/regeneration UI, the generated plaintext password is stored in `provisioned_password`. This is a deliberate, explicit security tradeoff for a low-stakes classroom tool, not an oversight or bug.
+- `client/src/lib/passwords.ts` (new) — account provisioning utilities:
+  - `generateMemorablePassword()`: generates memorable passwords in `word1-word2-number` format (e.g. `maple-river-22`, `ocean-atlas-63`), picking two distinct words from a hardcoded list of 75 words plus a random 2-digit number (10-99).
+  - `parseEmailList()`: parses plain-text or CSV email lists, extracting valid bare lowercase email addresses while tolerating headers, extra columns, blank lines, and `#` comment lines.
+  - `generateAccountsCsv()`: exports `email, password` pairs for created accounts matching `design.md` section 9 format (`alice@knox.edu, maple-river-22`).
+- `client/src/components/FacultyDashboard.tsx`:
+  - **Part A (Auth Mode Toggle):** Added toggle button in header to switch active world `auth_mode` between `open` and `accounts`. Shows a standard browser `confirm()` warning when switching an open-mode world with existing players to accounts mode ("Switching this world to Accounts Mode will require all students to log in with a password. Students already connected in Open Mode will lose access until given a password. Continue?").
+  - **Part B (Account Provisioning):** Added "Account Provisioning" section (rendered when active world is in `accounts` mode):
+    - Textarea input and file upload button accepting `.txt`/`.csv` files containing student emails.
+    - Provisioning handler fetches existing players in active world, skips creating duplicates for emails that already exist (`"carol@knox.edu already has an account — skipped"`), and creates PocketBase auth accounts in `players` for new emails with `password`, `passwordConfirm`, `provisioned_password`, `world_id`, and `display_name`.
+    - Displays batch results view with summary statistics badges (`X created`, `Y skipped`, `Z errors`), itemized outcome table, and a "Download CSV" button for newly created accounts.
+  - **Part C (View Passwords Later):** Extended per-student row and drill-down expand view in dashboard table:
+    - Updated `studentRows` to include all registered/provisioned players in the active world (including those with 0 submissions).
+    - Added "Password" column to table when `world.auth_mode === 'accounts'`, displaying `provisioned_password` in a styled font-mono badge. Column is omitted when in `open` mode.
+    - Updated drill-down expansion view to display student password when in accounts mode, and rendered a friendly empty state ("No submissions uploaded yet by this student.") for players with 0 uploads.
+- `client/src/lib/pocketbase.ts`: added `provisioned_password` field to `PlayerRecord` interface.
+- `client/src/index.css`: added styles for mode toggle button, password badge, provisioning section, email textarea, result stats badges, and status table.
+- Verified end-to-end against real running PocketBase server instance on port 8090:
+  1. Created open-mode world and verified toggle switched `auth_mode` to `accounts` with confirmation warning when existing players are present.
+  2. Uploaded email list (`test_alice...`, `test_bob...`, `test_carol...`), confirmed 3 PocketBase auth accounts created in `players` collection via REST API, each with `provisioned_password` matching memorable password in downloadable CSV.
+  3. Verified student `authWithPassword` succeeded with generated email and memorable password.
+  4. Re-uploaded list with duplicate email (`test_alice...`) + new email (`test_dave...`), confirmed existing account was skipped without error or overwrite, new account created, and both reflected in results view.
+  5. Verified submissions dashboard displays student passwords in accounts mode and hides password column in open mode.
+  6. Verified downloadable CSV content (`email, password`) matched API records exactly.
+- design.md sections affected: section 7 ("Authentication and Identity") and section 9 ("Faculty Panel").
+- Git commit hash: `0811e49`
+
+**NEEDS JAIME:** None.
