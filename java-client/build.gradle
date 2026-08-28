@@ -115,11 +115,11 @@ tasks.register('studentLibJar', Jar) {
 // 3) Zip the prepared folder into build/knoxel-client.zip
 tasks.register('clientZip', Zip) {
     group = 'distribution'
-    description = 'Zips the student project into knoxel-client.zip'
+    description = 'Zips the student project into student-knoxel.zip'
 
     dependsOn tasks.named('prepareStudentProject'), tasks.named('studentLibJar')
-    destinationDirectory = layout.buildDirectory
-    archiveFileName = "knoxel-client.zip"
+    destinationDirectory = file(layout.buildDirectory.get().asFile)
+    archiveFileName = "student-knoxel.zip"
 
     from(studentProjectDir)
     preserveFileTimestamps = false
