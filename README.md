@@ -1,55 +1,56 @@
-# TODO
+# Knoxel
 
-* What this is and how it works
-* How to install run your own shared server
+A browser-based 3D voxel visualizer for KnoxCraftMod turtle programs — a
+Minecraft-inspired way to see what a Java turtle program actually does,
+with no Minecraft license or install required.
 
-## Static tier (jspacco.github.io/knoxel)
+Students write ordinary Java (the same KnoxCraftMod API used with the
+Minecraft mod), and watch their program build in 3D in the browser. Programs
+can run solo, or in a shared multiplayer world where a whole class's turtles
+build side by side.
 
-No server, no login. Students run their Java program, it POSTs to the
-Cloudflare Worker, the browser opens to `?id=<id>` and auto-runs. See
-`docs/student-guide.md` for the student-facing flow and the Worker's exact
-POST/GET contract.
+<!-- screenshot/gif here -->
 
-To build and publish:
+## Two ways to run this
 
-```bash
-./scripts/build-static.sh   # → client/dist/
-```
+**Solo, no server, no install** — students run their Java program, it opens
+straight to a 3D view in the browser at
+[jspacco.github.io/knoxel](https://jspacco.github.io/knoxel). No login, no
+setup. This is the fastest way to try Knoxel or to use it for a quick
+in-class demo.
 
-Publish the contents of `client/dist/` to the repo's GitHub Pages source
-(project page, so the Vite base path is `/knoxel/` — override with
-`VITE_BASE` if that ever changes). Override `VITE_WORKER_URL` if deploying
-against a different Worker than `knoxel-worker.jspacco.workers.dev`.
+**Shared classroom world** — a small server (you run it, or a colleague
+runs it) that a whole class connects to, so everyone's turtles build in the
+same world at once, with submissions saved for grading/research. This needs
+the server download below.
 
-The Worker itself (`worker/`) only needs `npx wrangler deploy` once; it's not
-part of this build step. See `design/design.md` section 3.
+## Get Knoxel
 
-## Local/shared server tier (PocketBase)
+- **Running your own shared server:** download the zip for your platform
+  from the [latest release](../../releases/latest) —
+  `knoxel-mac-arm64.zip`, `knoxel-windows-x64.zip`, or
+  `knoxel-linux-x64.zip`. Unzip it and double-click `start.command`
+  (Mac) or `start.bat` (Windows) — full instructions are in the
+  `README.txt` inside the zip. No installs required; everything's bundled.
 
-First run:
-1. Binary starts PocketBase.
-2. Wrapper checks `knoxel-config.env` for existing admin credentials.
-3. None found (or they no longer authenticate, e.g. after wiping
-   `pb_data`) — wrapper generates a new superuser account via
-   `pocketbase superuser upsert`, authenticates as it, and writes the
-   email/password into `knoxel-config.env`. No browser step, no manual
-   account creation — this is fully non-interactive.
-4. Wrapper continues with world selection prompt.
-5. Done — same credentials are reused on every future run, no
-   re-creation needed.
+- **Student Java project:** `student-knoxel.zip`, also on the
+  [latest release](../../releases/latest) — a ready-to-open VS Code
+  project with the turtle library already set up and a handful of example
+  programs to start from.
 
-Subsequent runs:
-1. Binary starts PocketBase.
-2. Wrapper reads `knoxel-config.env`, authenticates with the existing
-   credentials, skips generation.
-3. World selection prompt.
-4. Done.
+## How students write programs
 
-- [ ] docs/faculty-setup.md needs a "first run" section covering:
-      1. First run auto-generates admin/faculty credentials into
-         `knoxel-config.env` — no manual superuser setup needed.
-      2. World creation via CLI prompt.
-      3. (Accounts mode only) Upload student list via the faculty panel
-         (`/faculty`) to generate student accounts and a downloadable
-         email/password CSV.
-      4. Share the server URL with students.
+Students write plain Java against the KnoxCraftMod turtle API — move,
+turn, place blocks — the same API used with the Minecraft mod, so code
+written for one works with the other. See the example programs bundled in
+`student-knoxel.zip` for the exact API and a few sample builds (a Mauritius
+flag, both single-threaded and in parallel).
+
+## For developers
+
+- [`design/design.md`](design/design.md) — architecture, database schema,
+  JSON program format, deployment tiers.
+- [`docs/worker-api.md`](docs/worker-api.md) — the Cloudflare Worker's
+  exact request/response contract, for anyone building an alternate
+  uploader against the static tier.
+- [`design/changes.md`](design/changes.md) — running build log.
